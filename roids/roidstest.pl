@@ -520,7 +520,7 @@ sub _handleAlien
 	my $rand = -1;
 	if (! defined($alien) && ! defined($drone)){
 		$rand = int(rand(5300-(300*$level)));
-		#$rand = 0;
+		$rand = 0;
 	}
 	if ($rand ==0){
 		my $ax = $cx-15;
@@ -801,20 +801,11 @@ sub _checkRoidCollisions
 		$doneRoidCheck = 1;
 		#checkCollision will find any roids collision, don't need to check more than once
 	}elsif(${$cnv->itemcget($k, -tags)}[0] eq 'missile'){
-		my ($mid, $tid) = $alien->checkMissileCollision($ship->{TAG},${$cnv->itemcget($k, -tags)}[2]);
-		if($mid > 0){
-			my $effect = ${$cnv->itemcget($k, -tags)}[1];
-			$cnv->delete($mid);
-			$cnv->delete($tid);
-			$effect =~ s/^eff:(\d+)$/$1/;
-			if ($effect > 0){
-				_processEffect($effect);
-			}else{
-				#die
-				$go = 2;
-			}
-		}
-		
+		my $effect = $alien->checkMissileCollision($ship->{TAG},$k);
+			
+		_processEffect($effect) if ($effect > -1);
+				
+
 	}elsif (${$cnv->itemcget($k, -tags)}[0] eq 'whale' && $spacewhale->{STATE} == 1){
 		$id =$ship->checkCollision('whale');
 		$go = 2 if ($id > 0);
@@ -851,7 +842,10 @@ sub _checkRoidCollisions
 sub _processEffect
 {
 	my $effect = shift;
-	return if ($effect == 0); #effect 0 is death, should have been dealt with elsewhere, would activate last good special if let through
+	if ($effect == 0){
+		$go = 2;
+		return;
+	}
 	if ($specialactive == 1 || $specialavailable > -1){
 		#remove any existing special
 		$specialstarttime -= 20;

@@ -48,18 +48,20 @@ sub draw
 		}else{
 			$cnv->coords($self->{ID}, $x1, $y1,$x2, $y2,$x3, $y3,$x4, $y4);
 		}
-		if (($self->{XSPEED} == 0 && $self->{Y} > 0 && ($self->{Y}%80) == 0) ||
-			($self->{XSPEED} > 0 && $self->{X} > 0 && ($self->{X}%80) == 0)){
+		if (($self->{XSPEED} == 0 && $self->{Y} > 0 && ($self->{Y}%60) == 0) ||
+			($self->{XSPEED} > 0 && $self->{X} > 0 && ($self->{X}%60) == 0)){
 			my $curcnt = scalar @{$self->{MISSILES}};
-			push(@{$self->{MISSILES}}, Missile->new($self->{X}-12, $self->{Y}, \$cnv, $curcnt));
+			push(@{$self->{MISSILES}}, Missile->new($self->{X}-12, $self->{Y}, \$cnv, $self->{XSPEED},$curcnt));
+			push(@{$self->{MISSILES}}, Missile->new($self->{X}-12, $self->{Y}, \$cnv, $self->{XSPEED},$curcnt+1));
 		}
 	}
 	#my @temp = ();
 	foreach (@{$self->{MISSILES}})
 	{
-		if (($self->{XSPEED} == 0 && $_->{X} > 0) ||
-			($self->{XSPEED} > 0 && $_->{Y} > 0)){
-			$_->draw($self->{XSPEED});
+		if (($self->{XSPEED} == 0 && ${$_->{TRAIL}}[1][0] > 0) ||
+			($self->{XSPEED} > 0 && ${$_->{TRAIL}}[1][1]  > 0)){
+			#should ask object if it thinks it is offscreen
+			$_->draw();
 	#		push(@temp, $_);
 		} elsif ($_->{ID} != 0){
 			$_->delete();
@@ -101,22 +103,28 @@ sub checkMissileCollision
 {
 	my $self=shift;
 	my $tag=shift;
-	my $arrid = shift;
+	my $key = shift;
+	
 	my $cnv=${$self->{CNV}};
+	my $arrid = ${$cnv->itemcget($key, -tags)}[2];
 	#foreach my $m (@{$self->{MISSILES}}){
 	my $m = ${$self->{MISSILES}}[$arrid];
-		my @keys = $cnv->find('overlapping', $m->{X}-2, $m->{Y}-2, $m->{X}+2, $m->{Y}+2);
-		return (0,0) if (scalar @keys <= 2); #background and warhead (may need to check if background missing though)
+		my @keys = $cnv->find('overlapping', $m->{LOC}[0][0], $m->{LOC}[0][1], $m->{LOC}[0][0], $m->{LOC}[0][1]);
+		return -1 if (scalar @keys <= 2); #background and warhead (may need to check if background missing though)
 		foreach my $id (@keys)
 		{
 			if (${$cnv->itemcget($id, -tags)}[0] eq $tag){
 				$m->{X}=-1;
 				$m->{Y}=-1;
-				return ($m->{ID},$m->{TRAILID});
+				my $effect = ${$cnv->itemcget($key, -tags)}[1];
+				$effect =~ s/^eff:(\d+)$/$1/;
+				$cnv->delete($m->{ID});
+				$cnv->delete($m->{TRAILID});
+				return $effect;
 			}
 		}
 	#}
-	return (0,0);
+	return -1;
 }
 
 sub hit
