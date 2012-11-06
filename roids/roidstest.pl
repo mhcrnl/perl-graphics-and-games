@@ -520,7 +520,7 @@ sub _handleAlien
 	my $rand = -1;
 	if (! defined($alien) && ! defined($drone)){
 		$rand = int(rand(5300-(300*$level)));
-		$rand = 0;
+		#$rand = 0;
 	}
 	if ($rand ==0){
 		my $ax = $cx-15;
