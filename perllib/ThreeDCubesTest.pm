@@ -25,7 +25,7 @@ sub new{
 	$self->{BACKPOINTS}=[];
 	$self->{DRAWORDER}=[];
 	$self->{FREEKEYS}=[];
-    	$self->{LIGHTSOURCE}=$lightsource;
+    	$self->{LIGHTSOURCE}=$lightsource; #can currently handle only one source of light
     	$self->{CNT}=0;
     	$self->{DISPLAY}=$displaycanvas;
     	$self->{CAMERA}=[int($$displaycanvas->Width/2),int($$displaycanvas->Height/2),0]; #will probably want to handle screen resize
@@ -37,12 +37,21 @@ sub new{
     	
     	$self->{CAMERA_VIEW_ANGLE}=$viewangle; #if zero will use perspective functions using focuspoints and fixed camera
     						#if greater, will use field of view function and moveable camera, ignores focuspoints
+    						
+    	$self->{MOVE_LS_WITH_CAM} = 0;
+    	
     	$self->{PXDRAW} = $pixeldraw;
     	$self->{MW}=$mw;
     	
 	bless $self;
 	return $self;
 
+}
+
+
+sub setLightsourceMoveWithCam{
+	my $self = shift;
+	$self->{MOVE_LS_WITH_CAM}  = shift;
 }
 
 
@@ -211,6 +220,20 @@ sub rotateAroundPoint
 	
 }
 
+sub _rotateLightSource{
+	my $self = shift;
+	my $axis = shift;
+	my $amount = shift;
+	my $temp = CanvasObject->new;
+	my @ls;
+	$ls[0] = [$self->{LIGHTSOURCE}[0]-$self->{CAMERA}[0],$self->{LIGHTSOURCE}[1]-$self->{CAMERA}[1],$self->{LIGHTSOURCE}[2]-$self->{CAMERA}[2]];
+	$temp->{VERTEXLIST} = \@ls;
+	$temp->rotate($axis,$amount,0,0);
+	foreach(0..2){
+		$self->{LIGHTSOURCE}[$_] = $ls[0][$_]+$self->{CAMERA}[$_];
+	}
+}
+
 
 sub moveCamera
 {
@@ -239,12 +262,27 @@ sub moveCamera
 		$self->{CAMERA}[0]+= ($tempv[0]*$amount);
 		$self->{CAMERA}[1]+= ($tempv[1]*$amount);
 		$self->{CAMERA}[2]+= ($tempv[2]*$amount);
+		
+		if ($self->{MOVE_LS_WITH_CAM} == 1){
+			$self->{LIGHTSOURCE}[0]+= ($tempv[0]*$amount);
+			$self->{LIGHTSOURCE}[1]+= ($tempv[1]*$amount);
+			$self->{LIGHTSOURCE}[2]+= ($tempv[2]*$amount);
+		}
+		for(my $i = 0 ; $i < @{$self->{BACKPOINTS}} ; $i++){
+			$self->{BACKPOINTS}[$i]->translate(($tempv[0]*$amount), ($tempv[1]*$amount), ($tempv[2]*$amount));
+		}
 	}
 	elsif ($direction eq 'z'){
 	#move along camera vector	
 		$self->{CAMERA}[0]+= ($$vector[0]*$amount);
 		$self->{CAMERA}[1]+= ($$vector[1]*$amount);
 		$self->{CAMERA}[2]+= ($$vector[2]*$amount);
+		#print $self->{LIGHTSOURCE}[0]." : ".$self->{LIGHTSOURCE}[1]." : ".$self->{LIGHTSOURCE}[2]."\n";
+		if ($self->{MOVE_LS_WITH_CAM} == 1){
+			$self->{LIGHTSOURCE}[0]+= ($$vector[0]*$amount);
+			$self->{LIGHTSOURCE}[1]+= ($$vector[1]*$amount);
+			$self->{LIGHTSOURCE}[2]+= ($$vector[2]*$amount);
+		}
 		for(my $i = 0 ; $i < @{$self->{BACKPOINTS}} ; $i++){
 			$self->{BACKPOINTS}[$i]->translate(($$vector[0]*$amount), ($$vector[1]*$amount), ($$vector[2]*$amount));
 		}
@@ -252,19 +290,19 @@ sub moveCamera
 	elsif ($direction eq 'pan_horiz'){ 
 
 		camVecTest($self,'y',$amount);
-		
+		_rotateLightSource($self,'y',$amount) if ($self->{MOVE_LS_WITH_CAM} == 1);
 		_panBackground($self);
 	}
 	elsif ($direction eq 'pan_vert'){
 
 		camVecTest($self,'x',$amount);
-
+		_rotateLightSource($self,'x',$amount) if ($self->{MOVE_LS_WITH_CAM} == 1);
 		_panBackground($self);
 	}
 	elsif ($direction eq 'roll'){
 
 			camVecTest($self,'z',$amount);
-
+			_rotateLightSource($self,'z',$amount) if ($self->{MOVE_LS_WITH_CAM} == 1);
 			_panBackground($self);
 	}
 	if (! $noupdate){
@@ -351,12 +389,15 @@ sub moveCameraInWorld
 	#camera moves in relation to the world view, not in relation to how the camera is oriented
 	if ($direction eq 'vert'){
 		$self->{CAMERA}[1]+=$amount;
+		$self->{LIGHTSOURCE}[1]+=$amount if ($self->{MOVE_LS_WITH_CAM} == 1);
 	}
 	elsif ($direction eq 'horiz'){
 		$self->{CAMERA}[0]+=$amount;
+		$self->{LIGHTSOURCE}[0]+=$amount if ($self->{MOVE_LS_WITH_CAM} == 1);
 	}
 	elsif ($direction eq 'z'){
 		$self->{CAMERA}[2]+=$amount;
+		$self->{LIGHTSOURCE}[2]+=$amount if ($self->{MOVE_LS_WITH_CAM} == 1);
 	}
 	#now update all objects
 	_updateAll($self);
@@ -1056,6 +1097,8 @@ sub _getPerspective
 }
 
 
+
+
 sub _getTransforms{ 
 	#get the set of transformations that get the camera to it's current orientation
 	my $self = shift;
@@ -1164,7 +1207,7 @@ sub _getFieldView
 		#if ($zed > 0){ # if not behind camera
 			#change vertex position depending on where the camera is pointing and how far away it is
 			#old version - this doesn't distort outside the field of view - but can't generate a (camera coordinate) point behind the camera - draws a mess
-
+			$zed = 1 if ($zed == 0);
 			my @vectortopoint = (($x-$eyex),($y-$eyey),$zed);
 			_normalise(\@vectortopoint);
 			my $angletopoint = atan($vectortopoint[0]/$vectortopoint[2]); #radians
@@ -1305,9 +1348,15 @@ sub _checkBackFace
 	my $n = shift;
 	my $centre = shift;
 	my @normal = @$n;
- 	#my $centre=_getCentre($self); #get vector to centre of object (simple shading - whole polygon has to shaded the same colour)
- 	#print join(":",@{$centre})."\n";
- 	my @lightsource = @{$self->{LIGHTSOURCE}};
+ 	 #get vector to centre of object (simple shading - whole polygon has to shaded the same colour)
+ 
+ 	my @lightsource ;
+ 	if (scalar @{$self->{LIGHTSOURCE}} > 0){
+ 		@lightsource = @{$self->{LIGHTSOURCE}};
+ 	}else{
+ 		#lightsource is the camera
+ 		@lightsource = @{$self->{CAMERA}};
+ 	}
  	my @lightvector = ($$centre[0] - $lightsource[0],$$centre[1]-$lightsource[1],$$centre[2]-$lightsource[2]);			
  	#normalise - unit vector
  	_normalise(\@lightvector);

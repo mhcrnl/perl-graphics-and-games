@@ -23,8 +23,13 @@ $mw->bind($toolmenu,'<Leave>', sub{$toolmenu->configure(-relief=>'raised');});
 my $cnv = $mw->Canvas(-width=>500, -height=>500, -background=>'black')->pack();
 my @focuspoint = (0); #length less than 3 should use default, not required with fov anyway.
 my @lightsource = (225, 225, -500);
+#my @lightsource = (); #lightsource will be the camera so wherever we are facing is well lit - does show up triangles at close range as polygon mode can't goraud shade
+
 $mw->update; #needed for $canvas->Height to work , could even put up a loading panel while the 3d stuff is underway
 my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource, 80); #will use fov perspective method, viewing angle is 80 degrees
+
+$tdc->setLightsourceMoveWithCam(1); #light moves with camera, but isn't the camera itself, this way we don't see the triangles so much
+
 #may need to update tdc to draw furthest items first (similar to what is done with triangles in an object)
 #am handling draw order from this script
 my $posy = int($mw->screenheight()/2 -300);
@@ -46,6 +51,14 @@ $mw->bind('<q>'=>[\&qkeydown]);
 $mw->bind('<KeyRelease-q>'=>[\&qkeyup]);
 $mw->bind('<e>'=>[\&ekeydown]);
 $mw->bind('<KeyRelease-e>'=>[\&ekeyup]);
+$mw->bind('<j>'=>[\&jkeydown]);
+$mw->bind('<KeyRelease-j>'=>[\&jkeyup]);
+$mw->bind('<l>'=>[\&lkeydown]);
+$mw->bind('<KeyRelease-l>'=>[\&lkeyup]);
+$mw->bind('<i>'=>[\&ikeydown]);
+$mw->bind('<KeyRelease-i>'=>[\&ikeyup]);
+$mw->bind('<k>'=>[\&kkeydown]);
+$mw->bind('<KeyRelease-k>'=>[\&kkeyup]);
 
 
 $mw->bind('<D>'=>[\&dkeydown]);
@@ -60,6 +73,14 @@ $mw->bind('<KeyRelease-Q>'=>[\&qkeyup]);
 $mw->bind('<E>'=>[\&ekeydown]);
 $mw->bind('<KeyRelease-E>'=>[\&ekeyup]);
 $mw->bind('<KeyRelease-S>'=>[\&skeyup]);
+$mw->bind('<J>'=>[\&jkeydown]);
+$mw->bind('<KeyRelease-J>'=>[\&jkeyup]);
+$mw->bind('<L>'=>[\&lkeydown]);
+$mw->bind('<KeyRelease-L>'=>[\&lkeyup]);
+$mw->bind('<I>'=>[\&ikeydown]);
+$mw->bind('<KeyRelease-I>'=>[\&ikeyup]);
+$mw->bind('<K>'=>[\&kkeydown]);
+$mw->bind('<KeyRelease-K>'=>[\&kkeyup]);
 $mw->bind('<FocusOut>'=>[\&focusOut]);
 $mw->bind('<FocusIn>'=>[\&focusIn]);
 
@@ -73,6 +94,8 @@ our $go = 0;
 our $rotvert = 0;
 our $rothoriz = 0;
 our $roll = 0;
+our $slide = 0;
+our $raise = 0;
 our $turnamount = 4;
 our @bullets = ();
 our $lastfire;
@@ -150,6 +173,12 @@ sub dispInstructions
 		push(@lines,"S\t - Pitch Up");
 		push(@lines,"A\t - Turn Left");
 		push(@lines,"D\t - Turn Right");
+		push(@lines,'');
+		push(@lines,"I\t - Raise");
+		push(@lines,"K\t - Lower");
+		push(@lines,"J\t - Slide Left");
+		push(@lines,"L\t - Slide Right");
+		push(@lines,'');
 		push(@lines,"Space\t - Fire");
 		push(@lines,'');
 		push(@lines,'Complete the ring course and hit targets along the way');
@@ -252,6 +281,12 @@ sub _move
 		}
 		if ($roll != 0){
 			$tdc->moveCamera('roll',$roll,1);
+		}
+		if ($slide != 0){
+			$tdc->moveCamera('horiz',$slide,1);
+		}
+		if ($raise != 0){
+			$tdc->moveCamera('vert',$raise,1);
 		}
 		if ($gate[$nextGate]{'dist'} < $gate[$nextGate]{'obj'}->{ORADIUS} +10){
 
@@ -422,7 +457,7 @@ sub skeyup
 
 sub qkeydown
 {
-	$roll = -$turnamount if ($rotvert == 0 && $rothoriz == 0 && $go == 1);
+	$roll = -$turnamount if ($roll && $go == 1);
 }
 
 sub qkeyup
@@ -431,12 +466,51 @@ sub qkeyup
 }
 sub ekeydown
 {
-	$roll = $turnamount if ($rotvert == 0 && $rothoriz == 0 && $go == 1);
+	$roll = $turnamount if ($roll && $go == 1);
 }
 
 sub ekeyup
 {
 	$roll = 0;
+}
+
+
+sub jkeydown
+{
+	$slide = -$turnamount if ($slide == 0 && $go == 1);
+}
+
+sub jkeyup
+{
+	$slide  = 0;
+}
+sub lkeydown
+{
+	$slide  = $turnamount if ($slide == 0 && $go == 1);
+}
+
+sub lkeyup
+{
+	$slide  = 0;
+}
+
+sub ikeydown
+{
+	$raise = $turnamount if ($raise == 0 && $go == 1);
+}
+
+sub ikeyup
+{
+	$raise  = 0;
+}
+sub kkeydown
+{
+	$raise  = -$turnamount if ($raise == 0 && $go == 1);
+}
+
+sub kkeyup
+{
+	$raise  = 0;
 }
 
 
