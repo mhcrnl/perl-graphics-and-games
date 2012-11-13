@@ -103,35 +103,35 @@ our %distances;
 our $drawDistance = 1500;
 
 #need someway to generate a (sane) course automatically
-$gate[5]{'pos'} = [200,200,501];
-$gate[5]{'angle'} = ['y',-60];
-$gate[5]{'width'} = 50;
-$gate[4]{'pos'} = [80,230,800];
-$gate[4]{'angle'} = ['x',90];
-$gate[4]{'width'} = 40;
-$gate[3]{'pos'} = [250,200,1250];
-$gate[3]{'angle'} = ['y',30];
-$gate[3]{'width'} = 30;
-$gate[2]{'pos'} = [300,70,1300]; #gate centre point
-$gate[2]{'angle'} = ['x',40];
-$gate[2]{'width'} = 30;
-
-$gate[1]{'pos'} = [200,20,1800];
-$gate[1]{'angle'} = ['x',0];
-$gate[1]{'width'} = 25;
-$gate[0]{'pos'} = [260,0,1800];
-$gate[0]{'angle'} = ['x',0];
-$gate[0]{'width'} = 25;
+#$gate[5]{'pos'} = [200,200,501];
+#$gate[5]{'angle'} = ['y',-60];
+#$gate[5]{'width'} = 50;
+#$gate[4]{'pos'} = [80,230,800];
+#$gate[4]{'angle'} = ['x',90];
+#$gate[4]{'width'} = 40;
+#$gate[3]{'pos'} = [250,200,1250];
+#$gate[3]{'angle'} = ['y',30];
+#$gate[3]{'width'} = 30;
+#$gate[2]{'pos'} = [300,70,1300]; #gate centre point
+#$gate[2]{'angle'} = ['x',40];
+#$gate[2]{'width'} = 30;
+#
+#$gate[1]{'pos'} = [200,20,1800];
+#$gate[1]{'angle'} = ['x',0];
+#$gate[1]{'width'} = 25;
+#$gate[0]{'pos'} = [260,0,1800];
+#$gate[0]{'angle'} = ['x',0];
+#$gate[0]{'width'} = 25;
+generateCourse(10);
 our $nextGate = @gate-1;
 
 
 buildStarField();
 
-$targets[0]{'pos'} = [220,100,300]; #this currently specifies top left corner of cube (1st vertex) might change that - most others are centre points - just cuboid is quite old
-$targets[1]{'pos'} = [230,70,1360];
-$targets[2]{'pos'} = [200,400,1800];
-#$targets[3]{'pos'} = [400,200,0];
-#$targets[4]{'pos'} = [0,200,0];
+#$targets[0]{'pos'} = [220,100,300]; #this currently specifies top left corner of cube (1st vertex) might change that - most others are centre points - just cuboid is quite old
+#$targets[1]{'pos'} = [230,70,1360];
+#$targets[2]{'pos'} = [200,400,1800];
+
 
 
 for (my $i = 0 ; $i < @targets ; $i++){
@@ -157,6 +157,30 @@ $mw->focusForce;
 
 MainLoop;
 
+
+sub generateCourse{
+	my $gates = shift;
+
+	my $x = $tdc->{CAMERA}[0];
+	my $y = $tdc->{CAMERA}[1];
+	my $z = $tdc->{CAMERA}[2]+300;
+	
+	for(my $i = $gates ; $i--;){
+
+		my $xmod = int(rand(350));
+		my $ymod = int(rand(350));
+		$z = $z+50+int(rand(400));		
+		$xmod = $xmod*-1 if (rand(2) > 1);
+		$ymod = $ymod*-1 if (rand(2) > 1);
+		$x += $xmod;
+		$y += $ymod;
+		$gate[$i]{'pos'} = [$x,$y,$z];
+		$gate[$i]{'angle'} = [(rand(2) > 1) ? 'y' : 'x',int(rand(90))];
+		$gate[$i]{'width'} = 25+int(rand(25));
+		$targets[$i/3]{'pos'} = [$x-50,$y - 120,$z-50] if ($i % 3 == 0);
+	}
+
+}
 
 sub dispInstructions
 {
@@ -226,6 +250,7 @@ sub _move
 	my $cnt =0;
 	my $mod = 2;
 	while ($go==1){
+	#print $lightsource[0]." : ".$lightsource[1].": ".$lightsource[2]."\n";
 		my $then = getTime();
 		if ($gate[0]{'id'} > -1){
 		#will produce a side to side movement on last gate
@@ -457,7 +482,7 @@ sub skeyup
 
 sub qkeydown
 {
-	$roll = -$turnamount if ($roll && $go == 1);
+	$roll = -$turnamount if ($roll == 0 && $go == 1);
 }
 
 sub qkeyup
@@ -466,7 +491,7 @@ sub qkeyup
 }
 sub ekeydown
 {
-	$roll = $turnamount if ($roll && $go == 1);
+	$roll = $turnamount if ($roll == 0 && $go == 1);
 }
 
 sub ekeyup
