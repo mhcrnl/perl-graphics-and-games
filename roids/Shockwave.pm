@@ -19,10 +19,15 @@ sub new
 	$self->{ADDX2} = shift;
 	$self->{ADDY2} = shift;
 	$self->{CNV} = shift;
-	$self->{ROUND} = 5;
+	$self->{ROUND} = 'WAVE';
 	$self->{ID} = 0;
 	bless $self;
     	return $self;
+}
+
+sub removeAfterHit
+{
+	return 0;
 }
 
 

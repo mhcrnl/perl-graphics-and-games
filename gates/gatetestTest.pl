@@ -26,7 +26,7 @@ my @lightsource = (225, 225, -500);
 #my @lightsource = (); #lightsource will be the camera so wherever we are facing is well lit - does show up triangles at close range as polygon mode can't goraud shade
 
 $mw->update; #needed for $canvas->Height to work , could even put up a loading panel while the 3d stuff is underway
-my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource, 80); #will use fov perspective method, viewing angle is 80 degrees
+my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource, 80,0); #will use fov perspective method, viewing angle is 80 degrees
 
 $tdc->setLightsourceMoveWithCam(1); #light moves with camera, but isn't the camera itself, this way we don't see the triangles so much
 
@@ -98,7 +98,7 @@ our $slide = 0;
 our $raise = 0;
 our $turnamount = 4;
 our @bullets = ();
-our $lastfire;
+our $lastfire = 999;
 our %distances;
 our $drawDistance = 1500;
 
@@ -123,7 +123,7 @@ our $drawDistance = 1500;
 #$gate[0]{'angle'} = ['x',0];
 #$gate[0]{'width'} = 25;
 generateCourse(10);
-our $nextGate = @gate-1;
+$nextGate = @gate-1;
 
 
 buildStarField();
@@ -147,7 +147,7 @@ for (my $i = 0 ; $i < @gate ; $i++){
 	$gate[$i]{'obj'} = Gate->new($gate[$i]{'width'},20,20);
 	if ($i == @gate-1){$gate[$i]{'obj'}->setColour('green');}
 	else{$gate[$i]{'obj'}->setColour('yellow');}
-	$gate[$i]{'obj'}->rotate($gate[$i]{'angle'}[0], $gate[$i]{'angle'}[1]);
+	$gate[$i]{'obj'}->rotate($gate[$i]{'angle'}[0], $gate[$i]{'angle'}[1],0,0);
 	$gate[$i]{'obj'}->translate($gate[$i]{'pos'}[0],$gate[$i]{'pos'}[1],$gate[$i]{'pos'}[2]); #translation done separately to register object, as it may be too far away to be registerd at this point, but still need to figure out where it is
 	$gate[$i]{'id'} = ($gate[$i]{'pos'}[2] < 1200) ? $tdc->registerObject($gate[$i]{'obj'},\@focuspoint,'',0,0,0) : -1;
 	push(@drawOrder,$gate[$i]{'id'}) if($gate[$i]{'id'} > -1) ;
@@ -289,13 +289,15 @@ sub _move
 		##make sure furthest objects drawn first (polygon mode has no z-buffer)
 		#may be some oddities as it's based on object centre point
 		#could collision check bullets on gates but going to start eating performance even more
-		@drawOrder = sort{_sort_func($a,$b)} @drawOrder;
-		@{$tdc->{DRAWORDER}} = @drawOrder;
+		
 		$tdc->moveCamera('z', $movespeed,1);
 		
 		#create/remove gates as necessary
 		_handleObjects(\@gate);
 		_handleObjects(\@targets);
+		
+		@drawOrder = sort{_sort_func($a,$b)} @drawOrder;
+		@{$tdc->{DRAWORDER}} = @drawOrder;
 
 	
 		if ($rotvert != 0){

@@ -40,3 +40,5 @@ sub new
 	bless $self;
     	return $self;
 }
+
+1;

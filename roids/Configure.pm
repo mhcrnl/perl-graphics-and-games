@@ -32,7 +32,7 @@ sub new{
 	$equipment[0] = ['Mining Charge','Combat Driver', 'Uber Ray']; #main gun
 	$stats[0][0] = [3,0,0,0]; #heat, rof mod, projectile speed mod, movement, speed mod - i.e. changes from standard, 
 	$stats[0][1] = [4,-0.07,2,-0.5];
-	$stats[0][2] = [12,0.2,0,-1];
+	$stats[0][2] = [10,0.2,0,-1];
 	$equipment[1] = ['Nothing','Deflector Screen','Impact Barrier','Heat Sink']; 
 	$stats[1][0] = [0,0,0,0,0];
 	$stats[1][1] = [1,0,0,-0.5,0];

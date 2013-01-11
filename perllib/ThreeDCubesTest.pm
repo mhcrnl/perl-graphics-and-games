@@ -20,6 +20,7 @@ sub new{
 	my $lightsource = shift;
 	my $viewangle = shift;
 	my $pixeldraw = shift;
+	$pixeldraw = 0 if(! $pixeldraw);
 	my $self = {};
 	$self->{SHAPES}=[];
 	$self->{BACKPOINTS}=[];
@@ -108,7 +109,7 @@ sub registerObject
 	}else{
 		push (@{$self->{DRAWORDER}}, $objnum);
 	}
-	_drawObject($self,0,$objnum) if ($nodraw==0);
+	_drawObject($self,0,$objnum) if (! $nodraw);
 	return $objnum;
 }
 
@@ -564,7 +565,7 @@ sub _drawObject
 	my $arrayref;
 	my @camVertList; #object vertexlist transformed to camera coordinates
 	my $facetVertices;
-	if ($fovflag>0){
+	if ($fovflag){
 		$arrayref = _getFieldView($self,$obj, 'SHAPES');
 		@camVertList = @{$arrayref};
 	}else{
@@ -573,7 +574,7 @@ sub _drawObject
 	}
 	if ($self->{SHAPES}[$obj]->{SORT} && $self->{PXDRAW}==0){
 		#if torus/cross etc. (complex shape)
-		if ($fovflag>0){
+		if ($fovflag){
 			#facetvertices array sorted on camera transformation coordinates
 			my $tempobj = CanvasObject->new();
 			$tempobj->{VERTEXLIST}=\@camVertList;
@@ -614,7 +615,7 @@ sub _drawObject
 				#print "$obj\n";
 				$vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
 				$facetVertices = $self->{SHAPES}[$obj]->{FACETVERTICES};
-				if ($fovflag>0){
+				if ($fovflag){
 					$arrayref = _getFieldView($self,$obj, 'SHAPES');
 					@camVertList = @{$arrayref};
 				}else{
@@ -660,7 +661,7 @@ sub _drawObject
 		$drawflag = 1 if (($$vertexList[$$facetVertices[$i][0]][2] < $$focuspoint[2] &&
 		$$vertexList[$$facetVertices[$i][1]][2] < $$focuspoint[2] &&
 		$$vertexList[$$facetVertices[$i][2]][2] < $$focuspoint[2]) ||
-		$fovflag > 0 );
+		$fovflag);
 		$x = $camVertList[$$facetVertices[$i][0]][0];
 		$y = $camVertList[$$facetVertices[$i][0]][1];
 		$x1 = $camVertList[$$facetVertices[$i][1]][0];
@@ -708,14 +709,17 @@ sub _drawObject
 				}
 		}
 
+		my $tag = $self->{SHAPES}[$obj]->{TAG};
+			$tag = 'none' if (! $tag);
 		if ($drawmode == 0){
 		if ($bf < 0 && $drawflag ==1){
 			#whole face shaded same colour only as drawing by polygon not pixel
 			#use master coords, not perspective coords for lighting
+			
 			if ($self->{SHAPES}[$obj]->{NOFILL} == 1){
-				$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -outline=>$outline, -tags=>''.$self->{SHAPES}[$obj]->{TAG});
+				$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -outline=>$outline, -tags=>''.$tag);
 			}else{
-				$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -fill=>$colour, -outline=>$outline, -tags=>''.$self->{SHAPES}[$obj]->{TAG});
+				$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -fill=>$colour, -outline=>$outline, -tags=>''.$tag);
 			}
 			$$displayitems[$idno] = $ditem;
 		}
@@ -737,9 +741,9 @@ sub _drawObject
 			}
 			elsif ($bf < 0 && $$displayitems[$idno] == 0 && $drawflag ==1){
 				if ($self->{SHAPES}[$obj]->{NOFILL} == 1){
-					$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -outline=>$outline, -tags=>''.$self->{SHAPES}[$obj]->{TAG});
+					$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -outline=>$outline, -tags=>''.$tag);
 				}else{
-					$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -fill=>$colour, -outline=>$outline, -tags=>''.$self->{SHAPES}[$obj]->{TAG});
+					$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -fill=>$colour, -outline=>$outline, -tags=>''.$tag);
 				}
 				$$displayitems[$idno] = $ditem;
 				$lastobj = $ditem;
@@ -1006,7 +1010,8 @@ sub _pixelDraw #called per facet
 			}
 		
 			#check if hidden by something
-			if ($z >= 0 && ($zbuf->{"$x"."_$y"."z"} eq '' || $zbuf->{"$x"."_$y"."z"}>$z )){
+			my $zval = $zbuf->{"$x"."_$y"."z"};
+			if ($z >= 0 && (! $zval || $zval>$z )){
 				push (@yToProcess,[$y,$z]);
 			}
 		}
@@ -1312,7 +1317,7 @@ sub _checkBackFace
 	my @normal = _getNormal($a,$b,$c);
 	    #assumes camera vector 0,0,1 - dot product not required, return z value
 	my $answer = $normal[2];
-	if ($fovflag>0){
+	if ($fovflag){
 		#assumes method - camera will not be 0,0,1
 		$$cvector[2]=$$cvector[2]*-1 if ($$cvector[2] < 0);
 		$answer = ($normal[2]*$$cvector[2]);
@@ -1337,7 +1342,7 @@ sub _checkBackFace
 	my @normal = _getNormal($a,$b,$c);
 	my ($colourdec,$percent) = _getColourIntensity($self,$obj,\@normal,$centre);
 	
-	return ($colourdec,$percent) if ($numberonly==1);
+	return ($colourdec,$percent) if ($numberonly);
 	
 	return _getColourString($colourdec,$shade,$percent,$self,$obj);
  }

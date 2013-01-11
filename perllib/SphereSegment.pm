@@ -31,7 +31,8 @@ sub new
 	
 	for (my $j = 0; $j<=90 ; $j+=$arcprogression)
 	{
-		my $temprad = ($sphereradius-$zeds[$i]);
+		my $temprad = $sphereradius;
+		$temprad = $temprad-$zeds[$i] if ($zeds[$i]);
 		my $x = $sphereradius+((sin(deg2rad($j)))*$temprad);
 		
 		my $z = $sphereradius-(cos(deg2rad($j))*$temprad);

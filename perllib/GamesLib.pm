@@ -121,7 +121,7 @@ sub dec2hex
     	$normal[1] = (-($vector1[0]*$vector2[2])+($vector2[0]*$vector1[2]));
     	$normal[2] = (($vector1[0]*$vector2[1])-($vector2[0]*$vector1[1]));
     	
-    	if ($no_normalise==0){
+    	if (! $no_normalise){
     	#unit vector
     	my $squareadd = ($normal[0]*$normal[0])+($normal[1]*$normal[1])+($normal[2]*$normal[2]);
     	#if zero points make a point

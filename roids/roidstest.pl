@@ -20,9 +20,9 @@ use ThreeDCubesTest;
 use strict;
 
 our $mainw = MainWindow->new(-background=>'black');
-my $g = ($mainw->screenwidth()-5)."x".($mainw->screenheight()-50)."+0+0";
+my $g = ($mainw->screenwidth()-5)."x".($mainw->screenheight()-60)."+0+0";
 $mainw->geometry($g);
-our $cy = $mainw->screenheight()-175;
+our $cy = $mainw->screenheight()-180;
 our $cx = $mainw->screenwidth()-45;
 my $f = $mainw->Frame(-background=>'black')->pack(-fill=>'both');
 my $mcnv = $f->Canvas(-height=>$cy+20, -background=>'black')->pack(-fill=>'both');
@@ -69,10 +69,29 @@ our $ddown = 0;
 	#cannot use fork - windows is pseudo-fork, OS treats all forked processes as a single process
 	our $sound = SoundServer->new(11);
 	our $music = Music->new();
-	our @specials = (\&_invuln, \&_triplefire, \&_newbomb, \&_incROF, \&_apRounds, \&_exRounds, \&_shockwave, \&_blinky);
-	our @onScreenActions = (sub{}, sub{},sub{}, sub{},sub{}, sub{},sub{}, \&_blinkyOnScreen);
-	our @specialactions = (\&_doinvuln, \&_dotriplefire, \&_collectbomb, \&_doincROF, \&_doapRounds, \&_doexRounds, \&_doshockwave, \&_doBlinky, \&_doReverse, \&_doSlow, \&_doFast, \&_doLoseGun, \&_doTurnRate);
-	our @specialends = (\&_endinvuln, sub{}, sub{}, \&_endincROF, \&_endRounds, \&_endRounds, \&_endshockwave,sub{}, \&_endReverse, \&_endSpeedMod, \&_endSpeedMod, \&_endLoseGun, \&_endTurnRate);
+
+	our @specials;
+	our $goodspecials = 10;
+	$specials[0] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds];
+	$specials[1] = [\&_triplefire,sub{},\&_dotriplefire,sub{}];
+	$specials[2] = [\&_newbomb,sub{},\&_collectbomb,sub{}];
+	$specials[3] = [\&_incROF,sub{},\&_doincROF,\&_endincROF];
+	$specials[4] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln];
+	$specials[5] = [sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds];
+	$specials[6] = [sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds];
+	$specials[7] = [sub{_ammoBox('yellow','S','red');},sub{},\&_doshockwave,\&_endshockwave];
+	$specials[8] = [sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds];
+	$specials[9] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{}];
+	#bad specials - e.g. missile hits
+	$specials[10] = [sub{}, sub{},\&_doReverse,\&_endReverse];
+	$specials[11] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod];
+	$specials[12] = [sub{}, sub{},\&_doFast,\&_endSpeedMod];
+	$specials[13] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun];
+	$specials[14] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate];
+	
+	
+	
+	
 	our $specialavailable;
 	our $specialactive;
 	our $specialstarttime;
@@ -128,12 +147,12 @@ sub _buildTopLevel
 	$mw->bind($confmenu,'<Leave>', sub{$confmenu->configure(-relief=>'raised');});
 	$mw->bind($toolmenu,'<Enter>', sub{$toolmenu->configure(-relief=>'sunken');});
 	$mw->bind($toolmenu,'<Leave>', sub{$toolmenu->configure(-relief=>'raised');});
-	my $g = ($mw->screenwidth()-5)."x".($mw->screenheight()-50)."+0+2"; #reduce height for windows bar and borders
+	my $g = ($mw->screenwidth()-5)."x".($mw->screenheight()-60)."+0+2"; #reduce height for windows bar and borders
 	$mw->geometry($g);
 	$mw->resizable(0,0);
 	$cnv = $userframe->Canvas(-width=>$cx, -height =>$cy, -borderwidth=>0, -background=>'black')->pack(-side=>'left');
 	$mw->update; #needed for $canvas->Height to work
-	$tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource);
+	$tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource,0,0);
 	if (! defined($ship)){
 		$ship = Ship->new(\$cnv, 3, 1, 0.3, 8, 5, 0, 0);
 		$ship->setColour('red');
@@ -153,7 +172,7 @@ sub _buildTopLevel
 		$mw->Photo('backdrop', -format => 'jpeg', -file => 'backdrop.jpg');
 	}
 	if (defined($mw->imageNames) && @{$mw->imageNames} > 0){
-		$cnv->createImage($cx/2,$cy/2, -image=>'backdrop', -anchor=>'center');
+		$cnv->createImage($cx/2,$cy/2, -image=>'backdrop', -anchor=>'center', -tags=>'bg');
 	}
 	my $tempx = int(($cx+30)/2);
 	my $ctlf = $mw->Frame(-width=>$tempx, -height=>100, -background => 'black', -borderwidth=>2)->pack;
@@ -256,6 +275,8 @@ sub dispInstructions
 		push(@lines,'R - Increase rate of fire');
 		push(@lines,'P - Piercing Rounds (Keeps going, makes shorter work of dark roids. Not with Uber Ray)');
 		push(@lines,'X - Explosive Rounds (Explodes near asteroids. Not with Uber Ray)');
+		push(@lines,'T - Tracking Rounds (Home in on nearest roid. Not with Uber Ray)');
+		push(@lines,'L - Beam Rounds');
 		push(@lines,'S - Shockwave (Asteroid Miners\' best friend. Alien not affected)');
 		push(@lines,'B - Replenish bomb (can\'t have more than 2 - does not appear if you have 2)');
 		push(@lines,'');
@@ -563,7 +584,7 @@ sub _handleMovement
 	my $addy = 0;
 
 	if ($ship->{thrust} != 0){
-		($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust});
+		($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust},0);
 			my ($ex, $ey) = $ship->getEnginePosition();
 			my $rand = 2.5-rand(5);
 			my $exhaustx = ($addx*-1)+$rand;
@@ -635,7 +656,7 @@ sub _handleRoids
 		}else{
 			$roids{$_}->draw();
 			_checkBombCollision($_,'blastwave') if($bomb == 1);
-			_checkBombCollision($_,'shockwave') if($shockwave>0); 
+			_checkBombCollision($_,'shockwave') if($shockwave && $shockwave>0); 
 		}
 	}
 }
@@ -653,7 +674,7 @@ sub _handleBullets
 			my $col = 0;
 			$col = _checkBulletCollision($bul) if ($bul->{ROUND} ne 'WAVE');
 			if ($col == 1){
-				if($bul->{ROUND} eq 'STD' || $bul->{ROUND} eq 'CLU'){
+				if($bul->removeAfterHit() == 1){
 					$bul->delete() ;
 					$bul=undef;
 				}
@@ -680,34 +701,34 @@ sub _handlespecials
 		my $rand = int(rand(300));
 		#my $rand = 1;
 		if ($rand == 1){
-			my $temp = @specials;
-			$specialavailable = int(rand($temp-0.01));
+			#my $temp = @specials;
+			$specialavailable = int(rand($goodspecials-0.01));
 			#$specialavailable = 7;
 			$specialstarttime = time();
-			&{$specials[$specialavailable]};
+			&{$specials[$specialavailable][0]};
 		}
 	}
 	elsif ($specialactive ==1){
 		my $t = 20 - (time()-$specialstarttime);
-		&{$specialactions[$specialavailable]};
+		&{$specials[$specialavailable][2]};
 		$t = 0 if ($t < 0);
 		$cntl->itemconfigure('countdown', -text=>"$t");
 		if ($t <= 0){
-			&{$specialends[$specialavailable]};
+			&{$specials[$specialavailable][3]};
 			$specialavailable = -1;
 			$specialactive = 0;
 			$cntl->itemconfigure('specialtext', -text=>'NORMAL');
 		}
 	}
 	elsif ($specialavailable > -1 && $specialactive == 0){
-		&{$onScreenActions[$specialavailable]};
+		&{$specials[$specialavailable][1]};
 		my ($x, $y, $x1, $y1) = $cnv->coords('special');
 		my @obj = $cnv->find('overlapping', $x, $y, $x1, $y1);
 		my $del = 0;
 		foreach my $id (@obj){
 			if (${$cnv->itemcget($id, -tags)}[0] eq $ship->{TAG} && $del == 0){
 				$specialstarttime = time();
-				$specialactive = &{$specialactions[$specialavailable]};
+				$specialactive = &{$specials[$specialavailable][2]};
 				$sound->play('special');
 				$del = 1;
 				last;
@@ -786,7 +807,11 @@ sub _checkRoidCollisions
 {
 	my ($x, $y, $x1, $y1, $no_triangles) = $ship->getBoundingBox(); #should reduce number of checks to do
 	my @keys = $cnv->find('overlapping', $x, $y, $x1, $y1);
-	return if (@keys <= (1+$no_triangles)); #minimum 3 objects will be found, background and the 2 ship halves (may need to take into account if background is missing)
+	#return if (@keys <= (1+$no_triangles)); #minimum 3 objects will be found, background and the 2 ship halves (may need to take into account if background is missing)
+	#we are checking most of the time anyway, especially if thrusting due to the exhaust particles
+	#foreach my $k (@keys){
+	#	print "TAG: ".${$cnv->itemcget($k, -tags)}[0] ."\n";
+	#}
 	@keys = grep{${$cnv->itemcget($_, -tags)}[0] =~ m/roid|missile|whale/;}@keys;
 	return if (@keys == 0);
 	foreach my $k (@keys){
@@ -854,8 +879,8 @@ sub _processEffect
 	#replace with the bad special
 	$cnv->delete('special'); #remove any special icon on screen
 	$specialstarttime = time();
-	$specialavailable = scalar @specials + $effect - 1;
-	$specialactive = &{$specialactions[$specialavailable]};
+	$specialavailable = $goodspecials + $effect - 1;
+	$specialactive = &{$specials[$specialavailable][2]};
 	
 }
 
@@ -982,7 +1007,7 @@ sub _checkBulletCollision
 				$sound->play('aliendie');
 			}
 			$ret = 1;
-			last if ($obj->{ROUND} eq 'STD' || $obj->{ROUND} eq 'CLU');
+			last if ($obj->removeAfterHit() == 1);
 		}
 		elsif (defined($drone) && $t == $drone->{ID}){
 			$score+=250 ;
@@ -991,7 +1016,7 @@ sub _checkBulletCollision
 			$drone = undef;
 			$sound->play('aliendie');
 			$ret = 1;
-			last if ($obj->{ROUND} eq 'STD' || $obj->{ROUND} eq 'CLU');
+			last if ($obj->removeAfterHit() == 1);
 		}elsif (defined($spacewhale) && $spacewhale->{STATE} == 1 && (scalar grep{$_==$t}@{$tdc->getItemIds($spacewhale->{ID})}) > 0){
 			#my $ids = $tdc->getItemIds($spacewhale->{ID});
 			#my @temp = grep{$_==$t}@$ids;
@@ -1004,7 +1029,7 @@ sub _checkBulletCollision
 				$tdc->removeObject($spacewhale->{ID});
 				_newbloom($spacewhale, 'red',10);
 				$spacewhale=undef;
-				last if ($obj->{ROUND}eq 'STD' || $obj->{ROUND} eq 'CLU');
+				last if ($obj->removeAfterHit() == 1);
 			#}
 		}
 		elsif ($roids{$t}){
@@ -1042,7 +1067,7 @@ sub _checkBulletCollision
 			$sound->play('hit1');
 			removeRoid($t);
 			}
-			last if ($obj->{ROUND} eq 'STD' || $obj->{ROUND} eq 'CLU');
+			last if ($obj->removeAfterHit() == 1);
 		}
 	}
 	return $ret;
@@ -1104,6 +1129,26 @@ sub _checkBeamRound
  	}
 }
 
+sub _getNearestRoid
+{
+	my $round = shift;
+	return 0 if (! ($round eq 'TRK')); #tracking round
+	my $roid = 0;
+	my $dist = -1;
+	
+	foreach my $rkey (keys %roids){
+		my ($rx,$ry) = $roids{$rkey}->getCentre();
+		my $dx = $ship->{VERTEXLIST}[0][0] - $rx;
+		my $dy = $ship->{VERTEXLIST}[0][1] - $ry;
+		my $distToRoid = sqrt(($dx*$dx)+($dy*$dy));
+		if ($distToRoid < $dist || $dist < 0){
+			$dist = $distToRoid;
+			$roid = $roids{$rkey};
+		}
+	}
+	return $roid;
+}
+
 sub _checkObjectAcrossLine
 {
 	my $rkey = shift; #object canvas ID
@@ -1142,7 +1187,7 @@ sub _checkObjectAcrossLine
 sub removeRoid
 {
 	my $key = shift;
-	$cnv->delete($key);
+	$roids{$key}->delete;
 	$roids{$key}=undef;
 	delete $roids{$key};
 	
@@ -1229,7 +1274,7 @@ sub _generateBullet
 	my $magnitude = shift;
 	my $line = shift;
 	my ($x, $y, $addx, $addy) = $ship->getFireLine($magnitude,$line);
-	my $b = Bullet->new($x, $y, $addx, $addy, \$cnv, $roundType);
+	my $b = Bullet->new($x, $y, $addx, $addy, \$cnv, $roundType, _getNearestRoid($roundType));
 	push(@bullets, $b);
 	if ($line==0){
 		$sound->play("bullet$roundType");
@@ -1322,44 +1367,36 @@ sub _endincROF
 }
 
 
-sub _apRounds
+sub _ammoBox
 {
+	my $bgcolour = shift;
+	my $text = shift;
+	my $txtcolour = shift;
 	if ($roundType eq 'STD'){
-	 	_specialbox('black','red','P','red') ;
+		 _specialbox($bgcolour,$txtcolour,$text,$txtcolour) ;
 	}else{
 		$specialavailable = -1;
 	}
 }
 
-sub _doapRounds
-{
+sub _doAmmo{
+	my $type = shift;
 	if($specialactive == 0){
-		$roundType = 'AP';
-		$cntl->itemconfigure('specialtext', -text=>'Piercing Rounds');
+		$roundType = $type;
+		my $text;
+		$text = 'Tracking Rounds' if ($type eq 'TRK');
+		$text = 'Piercing Rounds' if ($type eq 'AP');
+		$text = 'Explosive Rounds' if ($type eq 'EXP');
+		$text = 'Beam Rounds' if ($type eq 'BEAM');
+		$text = 'Shockwave' if ($type eq 'WAVE');
+		$cntl->itemconfigure('specialtext', -text=>$text);
 		return 1;
 	}
 	return 0;
 }
 
-sub _exRounds
-{
-	if ($roundType eq 'STD'){
-	 	_specialbox('black','yellow','X','yellow');
-	}else{
-		$specialavailable = -1;
-	}
-	
-}
 
-sub _doexRounds
-{
-	if($specialactive == 0){
-		$roundType = 'EXP';
-		$cntl->itemconfigure('specialtext', -text=>'Explosive Rounds');
-		return 1;
-	}
-	return 0;
-}
+
 
 sub _endRounds
 {
@@ -1367,15 +1404,7 @@ sub _endRounds
 }
 
 
-sub _shockwave
-{
-	if ($roundType eq 'STD' || $roundType eq 'BEAM'){
-	 	_specialbox('yellow','red','S','red');
-	}else{
-		$specialavailable = -1;
-	}
-	
-}
+
 
 sub _doshockwave
 {
@@ -1460,18 +1489,18 @@ sub _doBlinky
 				$music->end();
 				if ($p eq "Complete"){
 					#award crystal
-					$crystal = int(rand(scalar @specials - 1.01)); #don't include last special element, is another blinky 
+					$crystal = int(rand($goodspecials - 1.01)); #don't include last special element, is another blinky 
 					#print "Crytsal: $crystal\n";
 					#will need to update a marker
 					my $c = _getColour($crystal);
 					$cframe->configure(-background=>$c);
 				}elsif ($p eq "Hit Gate"){
 					#activate bad special
-					my $badspecs = scalar @specialactions - scalar @specials - 0.01;
+					my $badspecs =  scalar @specials - $goodspecials - 0.01;
 					my $effect = int(rand($badspecs));
-					$specialavailable = scalar @specials + $effect;
+					$specialavailable = $goodspecials + $effect;
 					$specialstarttime = time();
-					&{$specialactions[$specialavailable]};
+					&{$specials[$specialavailable][2]};
 					$ret = 1;
 				}
 				#incomplete course does nothing
@@ -1671,7 +1700,7 @@ sub _momentumData
 {
 
 	if ($ship->{thrust} != 0){
-		my ($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust});
+		my ($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust},0);
 		$momx += $addx;
 		$momy += $addy;
 		my $sq = ($momx*$momx)+($momy*$momy);
@@ -1781,7 +1810,7 @@ sub useCrystal
 		$cnv->delete('special'); #remove any special icon on screen
 		$specialstarttime = time();
 		$specialavailable = $crystal; 
-		$specialactive = &{$specialactions[$specialavailable]};
+		$specialactive = &{$specials[$specialavailable][2]};
 		#reset
 		$cframe->configure(-background=>'black');
 		$crystal = -1;

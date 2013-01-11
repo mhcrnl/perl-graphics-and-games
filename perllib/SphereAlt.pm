@@ -74,7 +74,7 @@ sub new
 		push(@facetVertices,[$addr,$i,$j,$idno]);
 		$idno++;
 		$addr = scalar @vertexList -1;
-		push(@facetVertices,[$addr,$j+($points*($pointsperarc-2)),$i+($points*($pointsperarc-2)),$idno]);
+		push(@facetVertices,[$addr,$j+($points*($pointsarc-2)),$i+($points*($pointsarc-2)),$idno]);
 		$idno++;
 	}
 	#print "$idno\n";

@@ -14,7 +14,7 @@ my $sphere = Sphere->new(100);
 my $cube = Cuboid->new();
 $cube->setDimensions(140,140,140);
 
-my @lightsource = (225, 225, -100);
+my @lightsource = (225, 225, -500);
 $cnv->createText(10, 20, -text=>'Loading, Please Wait ...', -font=>'{Arial Bold} 14',-fill=>'black', -anchor=>'w');
 $mw->update; #needed for $canvas->Height to work , could even put up a loading panel while the 3d stuff is underway
 my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource,0,1);

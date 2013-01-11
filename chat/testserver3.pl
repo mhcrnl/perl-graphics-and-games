@@ -59,7 +59,7 @@ while(1){
 			$currentThread++;
 			$currentThread = 1 if ($currentThread == $threads+1);
 			if ($shash{$currentThread}{'go'} == 0){
-				$shash{$currentThread}{'go'} == 1;
+				$shash{$currentThread}{'go'} = 1;
 				last;
 			}
 			#else we are too busy

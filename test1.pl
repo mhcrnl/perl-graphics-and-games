@@ -25,7 +25,7 @@ our $obj = $tdc->registerObject($tempobj,\@focuspoint,'#00ff00',220,150,100);
 
 MainLoop;
 
-#testing moving objects from in front of camera to partly behind for pixel draw - it does mess up I haven't figured it out yet
+
 sub go{
 
 $tdc->translate($obj,0,0,-30);

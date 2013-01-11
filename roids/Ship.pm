@@ -23,7 +23,7 @@ sub new
 	$self->{baseguntype} = shift;
 	$self->{baseturnrate} = 3;
 	$self->{basebomb} = 2;
-	$self->{basecol};
+	$self->{basecol} = 'red';
 	
 	$self->{heat} = $self->{baseheat};
 	$self->{guns} = $self->{baseguns};
@@ -378,6 +378,7 @@ sub _checkTags
 	
 	foreach my $id (@$list)
 	{
+		
 		if (${$$cnv->itemcget($id, -tags)}[0] =~ m/^$tag$/){
 			$collision=$id;
 			last;

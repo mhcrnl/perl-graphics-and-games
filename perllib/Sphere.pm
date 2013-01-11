@@ -66,7 +66,6 @@ sub new
 	push(@vl,[$sphereradius,$sphereradius,$sphereradius]);
 	   	
 	$self->{GORAUD} = 1;  	
-	$self->{FOCUSPOINT}=\@focuspoint;
 	$self->{VERTEXLIST}=\@vl;
 	$self->{FACETVERTICES}=\@fv;
 	$self->{RADIUS}=$sphereradius;

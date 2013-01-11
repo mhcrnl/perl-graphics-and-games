@@ -34,8 +34,8 @@ sub plotDeflectionShot
 	}
 	my $cnv = $self->{CNV};
 	my @shipcoords = $$cnv->coords('ship');
-	my $sx = @shipcoords[4];
-	my $sy = @shipcoords[5];
+	my $sx = $shipcoords[4];
+	my $sy = $shipcoords[5];
 	my $tx = $sx;
 	my $ty = $sy;
 	my $bspeed = 8;
@@ -102,8 +102,8 @@ sub move
 #try to home in on ship to a certain distance
 	my $self = shift;
 	my @shipcoords = $$cnv->coords('ship');
-	my $sx = @shipcoords[4];
-	my $sy = @shipcoords[5];
+	my $sx = $shipcoords[4];
+	my $sy = $shipcoords[5];
 	my $dx = $self->{X} - $sx;
 	my $dy = $self->{Y} - $sy;
 	my $len = sqrt(($dx*$dx)+($dy*$dy));

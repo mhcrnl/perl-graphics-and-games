@@ -2,6 +2,7 @@ package Bullet;
 
 use Tk;
 use GamesLib;
+use Math::Trig;
 use strict;
 
 sub new
@@ -16,34 +17,76 @@ sub new
 	$self->{ROUND} = shift;
 	$self->{ID} = 0;
 	$self->{CNT} = 0;
+		$self->{TRACKING} = shift;
+		my $length=0;
+		if ($self->{ADDX} == 0){
+			$length=sqrt($self->{ADDY}*$self->{ADDY});
+		}elsif ($self->{ADDY} == 0){
+			$length=sqrt($self->{ADDX}*$self->{ADDX});
+		}else{
+			$length = sqrt(($self->{ADDX}*$self->{ADDX})+($self->{ADDY}*$self->{ADDY}))
+		}
+	$self->{LENGTH} = $length;
 	bless $self;
     	return $self;
 }
 
 
-sub draw
+sub _alterTrajectory{
+	my $self=shift;
+
+	return if ($self->{TRACKING} == 0 || ! defined($self->{TRACKING}) || (defined($self->{TRACKING}) && $self->{TRACKING}->{DEAD}==1));
+	
+	my ($rx,$ry) = $self->{TRACKING}->getCentre();
+
+	my ($addx, $addy) = getLine($self->{LENGTH}, $rx, $ry, $self->{X}, $self->{Y});
+	
+	#trying to get a nice curve
+	
+	my @roidvec = ($addx,$addy,0);
+	_normalise(\@roidvec);
+	my $roiddeg = rad2deg(acos($roidvec[1]));
+	$roiddeg = 360 - $roiddeg if ($roidvec[0] < 0);
+	
+	my @bulvec = ($self->{ADDX},$self->{ADDY},0);
+	_normalise(\@bulvec);
+	my $buldeg = rad2deg(acos($bulvec[1]));
+	$buldeg = 360 - $buldeg if ($bulvec[0] < 0);
+	
+	my $dif = $roiddeg - $buldeg;
+	 $dif-=360 if ($dif > 180);
+	  $dif+=360 if ($dif < -180);
+	
+	$dif = sprintf "%.2f", $dif;
+	
+	$dif = 5 if ($dif > 5);
+	$dif = -5 if ($dif < -5);
+	
+	my $tempvec = CanvasObject->new;
+	my @vector;
+	$vector[0] = [$self->{ADDX},$self->{ADDY},0];
+	$tempvec->{VERTEXLIST} = \@vector;
+	$tempvec->rotate('z',-$dif,0,0);
+	
+	$self->{ADDX} = $vector[0][0];
+	$self->{ADDY} = $vector[0][1];
+	
+	$tempvec = undef;
+	#$self->{ADDX} = $addx;
+	#$self->{ADDY} = $addy;
+}
+
+sub _generateBeam
 {
 	my $self=shift;
 	my $xlimit=shift;
 	my $ylimit=shift;
 	my $tag=shift;
-	$tag='bullet' if (! $tag);
 	my $cnv=${$self->{CNV}};
-	my $x = $self->{X};
-	my $y = $self->{Y};
-	$self->{X} += $self->{ADDX};
-	$self->{Y} += $self->{ADDY};
-	my $colour = 'green';
-	$colour = 'blue' if ($self->{ROUND} eq 'AP');
-	$colour = 'cyan' if ($self->{ROUND} eq 'EXP');
-	
-	if($self->{ROUND} eq 'BEAM'){
-		#beam weapon
-
-		my ($xl, $yl);
+	my ($xl, $yl);
 		my $cyclestox = -1;
 		my $cyclestoy = -1;
-		#print $xlimit." - ".$self->{X}." - ".$self->{ADDX}."\n";
+
 		if ($self->{ADDX} < 0){
 			$cyclestox = $self->{X}/($self->{ADDX}*-1);
 		}elsif($self->{ADDX} > 0){
@@ -64,10 +107,10 @@ sub draw
 			$xl=$self->{X}+($self->{ADDX}*$cyclestoy);
 			$yl=$self->{Y}+($self->{ADDY}*$cyclestoy);		
 		}
-		#print "$x : $y : $xl : $yl\n";
+
 		
 		if ($self->{ID} == 0){
-			$self->{ID} = $cnv->createLine($x, $y, $xl, $yl, -width=>2, -fill=>$colour, -tags=>$tag);
+			$self->{ID} = $cnv->createLine($self->{X}, $self->{Y}, $xl, $yl, -width=>2, -fill=>'green', -tags=>$tag);
 		}else{
 			$self->{CNT}++;
 			#prettified laser effect
@@ -77,6 +120,41 @@ sub draw
 			$cnv->itemconfigure($self->{ID}, -width=>1) if ($self->{CNT} == 9);
 			$self->{X} = $xlimit+10 if($self->{CNT} == 14);
 		}
+}
+
+
+sub removeAfterHit{
+
+	my $self=shift;
+	return 1 if ($self->{ROUND} =~ m/STD|CLU|TRK/);
+	
+	return 0;
+}
+
+sub draw
+{
+	my $self=shift;
+	my $xlimit=shift;
+	my $ylimit=shift;
+	my $tag=shift;
+	$tag='bullet' if (! $tag);
+	
+	_alterTrajectory($self) if ($self->{ROUND} eq 'TRK' && $self->{CNT} > 10); #tracking round
+	
+	my $cnv=${$self->{CNV}};
+	my $x = $self->{X};
+	my $y = $self->{Y};
+	$self->{X} += $self->{ADDX};
+	$self->{Y} += $self->{ADDY};
+	my $colour = 'green';
+	$colour = 'blue' if ($self->{ROUND} eq 'AP');
+	$colour = 'cyan' if ($self->{ROUND} eq 'EXP');
+	$colour = 'yellow' if ($self->{ROUND} eq 'TRK');
+	
+	if($self->{ROUND} eq 'BEAM'){
+		#beam weapon
+		_generateBeam($self,$xlimit,$ylimit,$tag);
+		
 	}
 	else{
 		if ($self->{ID} == 0){
@@ -84,10 +162,9 @@ sub draw
 		}else{
 			$cnv->coords($self->{ID},$x, $y, $self->{X}, $self->{Y});
 		}
-		
+		$self->{CNT}++;
 		if($self->{ROUND} eq 'CLU'){
 			#cluster munition
-			$self->{CNT}++;
 			$self->{X} = $xlimit+10 if($self->{CNT} == 16);
 		}
 	}
@@ -111,6 +188,7 @@ sub delete
 	my $self = shift;
 	my $cnv = ${$self->{CNV}};
 	$cnv->delete($self->{ID});
+	$self->{TRACKING} = undef;
 }
 
 

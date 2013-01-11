@@ -14,7 +14,7 @@ use Win32::Registry;
 #my $key= $Registry->{"HKEY_LOCAL_MACHINE\\SOFTWARE\\Perl"};
 #print "$key\n";
 #my $path= $key->{"\\BinDir"};
-
+my $p;
 Win32::Process::Create($p,
 $path,
 "perl roidstest.pl",

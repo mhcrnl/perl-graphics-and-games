@@ -1,8 +1,9 @@
 package Whale3D;
 use CanvasObject;
+use strict;
 
 
-@ISA = qw(CanvasObject);
+our @ISA = qw(CanvasObject);
 
 sub new
 {

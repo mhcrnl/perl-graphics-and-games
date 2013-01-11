@@ -15,6 +15,7 @@ sub new
 	$self->{HP} = shift;
 	$self->{COL} = shift;
 	$self->{CNV} = shift;
+	$self->{DEAD} = 0;
 	$self->{ID} = 0;
 	bless $self;
     	return $self;
@@ -104,6 +105,12 @@ sub getBoundingBox{
  	return ($minx,$miny,$maxx,$maxy);
 }
 
+sub getCentre{
+	my $self = shift;
+	
+	return ($self->{X}+(15*$self->{SIZE}),$self->{Y}+(15*$self->{SIZE}));
+
+}
 
 sub offScreen
 {
@@ -126,6 +133,7 @@ sub offScreen
 sub delete
 {
 	my $self = shift;
+	$self->{DEAD}=1;
 	my $cnv = ${$self->{CNV}};
 	$cnv->delete($self->{ID});
 }

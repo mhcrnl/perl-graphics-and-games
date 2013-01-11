@@ -8,13 +8,16 @@ sub new
 	my @canvasitems = ();
 	my @focus = (0,0,0);
 	my $self = {};
-    	$self->{VERTEXLIST};
-    	$self->{FACETVERTICES};
+		my @vl;
+		my @fc;
+    	$self->{VERTEXLIST} = \@vl;
+    	$self->{FACETVERTICES} = \@fc;
     	$self->{CANVASITEMS}=\@canvasitems;
     	$self->{FOCUSPOINT}=\@focus;
     	$self->{SHADE}='green';
     	$self->{NOFILL}=0;
     	$self->{OUTL} = '';
+    	$self->{GORAUD} = 0;
     	bless($self,$class);
     	return $self;
 }
@@ -39,6 +42,8 @@ sub rotate
 	my $angle = shift;
 	my $trans1 = shift;
 	my $trans2 = shift;
+	$trans1 = 0 if (! $trans1);
+	$trans2 = 0 if (! $trans2);
 	my $rotMatrix;
 	$rotMatrix = _rxMatrix($angle,$trans1,$trans2) if ($type eq 'x');
 	$rotMatrix = _ryMatrix($angle,$trans1,$trans2) if ($type eq 'y');
@@ -82,6 +87,9 @@ sub _mapMatrix
 {
 	my $self = shift;
 	my $rotMatrix = shift;
+	my @vl = @{$self->{VERTEXLIST}};
+
+	return if (scalar @{$self->{VERTEXLIST}} == 0);
 	map{
 	       	my $x = ${$_}[0];
 	       	my $y = ${$_}[1];
@@ -111,6 +119,8 @@ sub translate
   	my $x = shift;
   	my $y = shift;
   	my $z = shift;
+  	$z = 0 if (! $z);
+  	return if (scalar @{$self->{VERTEXLIST}} == 0);
   	map {${$_}[0]+=$x;${$_}[1]+=$y;${$_}[2]+=$z;}  @{$self->{VERTEXLIST}};
   	
     #for (my $i = 0 ; $i < @{$self->{VERTEXLIST}} ; $i++)
@@ -186,15 +196,16 @@ sub _matrixMultiply
 {
 my $matrix1 = shift;
 my $matrix2 = shift;
+print "moo\n" if (! $matrix1);
+print "cow\n" if (! $matrix2);
 my @multiplied;
 
-	for (my $i = 0 ; $i < 4 ; $i++){
+	for (my $i = 0 ; $i < 3 ; $i++){
 		for (my $j = 0 ; $j < 4 ; $j++){
 
 		$multiplied[$i][$j] = $$matrix1[$i][0]*$$matrix2[0][$j]+
 					$$matrix1[$i][1]*$$matrix2[1][$j]+
-					$$matrix1[$i][2]*$$matrix2[2][$j]+
-					$$matrix1[$i][3]*$$matrix2[3][$j];
+					$$matrix1[$i][2]*$$matrix2[2][$j];
 		
 
 		}
