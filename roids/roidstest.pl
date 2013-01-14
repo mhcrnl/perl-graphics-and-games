@@ -71,7 +71,7 @@ our $ddown = 0;
 	our $music = Music->new();
 
 	our @specials;
-	our $goodspecials = 10;
+	
 	$specials[0] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds];
 	$specials[1] = [\&_triplefire,sub{},\&_dotriplefire,sub{}];
 	$specials[2] = [\&_newbomb,sub{},\&_collectbomb,sub{}];
@@ -79,15 +79,17 @@ our $ddown = 0;
 	$specials[4] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln];
 	$specials[5] = [sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds];
 	$specials[6] = [sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds];
-	$specials[7] = [sub{_ammoBox('yellow','S','red');},sub{},\&_doshockwave,\&_endshockwave];
+	$specials[7] = [sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds];
 	$specials[8] = [sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds];
-	$specials[9] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{}];
+	$specials[9] = [sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds];
+	$specials[10] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{}]; #this one must be last of the good specials
+	our $goodspecials = scalar @specials;
 	#bad specials - e.g. missile hits
-	$specials[10] = [sub{}, sub{},\&_doReverse,\&_endReverse];
-	$specials[11] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod];
-	$specials[12] = [sub{}, sub{},\&_doFast,\&_endSpeedMod];
-	$specials[13] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun];
-	$specials[14] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate];
+	$specials[11] = [sub{}, sub{},\&_doReverse,\&_endReverse];
+	$specials[12] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod];
+	$specials[13] = [sub{}, sub{},\&_doFast,\&_endSpeedMod];
+	$specials[14] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun];
+	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate];
 	
 	
 	
@@ -189,8 +191,8 @@ sub _buildTopLevel
 	$mw->bind('<KeyRelease-a>'=>[\&akeyup]);
 	$mw->bind('<w>'=>[\&wkeydown]);
 	$mw->bind('<KeyRelease-w>'=>[\&wkeyup]);
-	$mw->bind('<s>'=>[\&skeydown]);
-	$mw->bind('<KeyRelease-s>'=>[\&skeyup]);
+	#$mw->bind('<s>'=>[\&skeydown]);
+	#$mw->bind('<KeyRelease-s>'=>[\&skeyup]);
 	$mw->bind('<b>'=>[\&useBomb]);
 	$mw->bind('<c>'=>[\&useCrystal]);
 	
@@ -201,8 +203,8 @@ sub _buildTopLevel
 	$mw->bind('<KeyRelease-A>'=>[\&akeyup]);
 	$mw->bind('<W>'=>[\&wkeydown]);
 	$mw->bind('<KeyRelease-W>'=>[\&wkeyup]);
-	$mw->bind('<S>'=>[\&skeydown]);
-	$mw->bind('<KeyRelease-S>'=>[\&skeyup]);
+	#$mw->bind('<S>'=>[\&skeydown]);
+	#$mw->bind('<KeyRelease-S>'=>[\&skeyup]);
 	$mw->bind('<B>'=>[\&useBomb]);
 	$mw->bind('<C>'=>[\&useCrystal]);
 	$mw->bind('<FocusOut>'=>[\&focusOut]);
@@ -277,7 +279,8 @@ sub dispInstructions
 		push(@lines,'X - Explosive Rounds (Explodes near asteroids. Not with Uber Ray)');
 		push(@lines,'T - Tracking Rounds (Home in on nearest roid. Not with Uber Ray)');
 		push(@lines,'L - Beam Rounds');
-		push(@lines,'S - Shockwave (Asteroid Miners\' best friend. Alien not affected)');
+		push(@lines,'S - Sentry Rounds');
+		push(@lines,'W - Shockwave (Asteroid Miners\' best friend. Alien not affected)');
 		push(@lines,'B - Replenish bomb (can\'t have more than 2 - does not appear if you have 2)');
 		push(@lines,'');
 		push(@lines,'Heat Meter:');
@@ -404,33 +407,6 @@ sub _resetShip
 }
 
 
-#sub _draw{
-#	my $tag = shift;
-#	my $obj = shift;
-#	$obj->draw('ship');
-#	
-#	$mw->update;
-#
-#}
-#
-#
-#sub _rotate
-#{
-#	#around object centre point
-#
-#	my $tag= shift;
-#	my $obj=shift;
-#	my $angle = shift;
-#	my $centre = $obj->getCentre();
-#	my @c = ($$centre[0],$$centre[1]);
-#	my @trans = (-$$centre[0],-$$centre[1],0);
-#	#negative rate will move object in anti-clockwise direction
-#	$obj->translate($trans[0], $trans[1], $trans[2]);
-#	$obj->rotate('z',$angle,$c[0],$c[1]);
-#	_draw($tag,$obj);
-#	_momentumData();
-#	
-#}
 
 
 sub go
@@ -584,6 +560,7 @@ sub _handleMovement
 	my $addy = 0;
 
 	if ($ship->{thrust} != 0){
+		$ship->{thrust}+=0.1 if ($ship->{thrust} < $ship->{mspeed});
 		($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust},0);
 			my ($ex, $ey) = $ship->getEnginePosition();
 			my $rand = 2.5-rand(5);
@@ -599,9 +576,9 @@ sub _handleMovement
 	$momx = 0 if ($momx < 0.1 && $momx > -0.1);
 	$momy = 0 if ($momy < 0.1 && $momy > -0.1);
 	
-	if ($momx != 0 || $momy != 0){
-		$momx = $momx/1.024;
-		$momy = $momy/1.024;
+	#if ($ship->{thrust} < $ship->{mspeed}){
+		$momx = $momx/1.015;
+		$momy = $momy/1.015;
 		$addx += $momx;
 		$addy += $momy;
 		my $sq = ($addx*$addx)+($addy*$addy);
@@ -611,7 +588,12 @@ sub _handleMovement
 			$addy=$addy/$pc;
 			$addx=$addx/$pc;
 		}
-	}
+
+	#}
+	#else{
+	#	$momx=$addx;
+	#	$momy=$addy;
+	#}
 	#move ship	
 	if ($addx != 0 || $addy != 0){
 		my $centre = $ship->getCentre();
@@ -665,7 +647,7 @@ sub _handleBullets
 {
 	my @btemp = ();
 	foreach my $bul (@bullets){
-		$bul->draw($cx,$cy);
+		$bul->draw($cx,$cy,\@bullets,'bullet');
 		if ($bul->offScreen($cx,$cy)){
 			$bul->delete();
 			$bul=undef;
@@ -698,12 +680,12 @@ sub _handlespecials
 		$cnv->delete('special');
 	}
 	elsif ($specialavailable == -1){
-		my $rand = int(rand(300));
-		#my $rand = 1;
+		#my $rand = int(rand(300));
+		my $rand = 1;
 		if ($rand == 1){
 			#my $temp = @specials;
-			$specialavailable = int(rand($goodspecials-0.01));
-			#$specialavailable = 7;
+			#$specialavailable = int(rand($goodspecials-0.01));
+			$specialavailable = 9;
 			$specialstarttime = time();
 			&{$specials[$specialavailable][0]};
 		}
@@ -1081,23 +1063,8 @@ sub _checkExplosiveRound
 	@temp = grep{${$cnv->itemcget($_, -tags)}[0] =~ m/roid|drone|alien|whale/;}@temp;
 	if (@temp > 0){
 		#burst
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 6, 0, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, -6, 0, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 0, 6, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 0, -6, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 4.24, 4.24, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 4.24, -4.24, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, -4.24, 4.24, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, -4.24, -4.24, \$cnv, 'CLU'));
+		$obj->doExplosion(\@bullets);
 		
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 3, 5.2, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 5.2, 3, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 3, -5.2, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, 5.2, -3, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, -3, 5.2, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, -5.2, 3, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, -3, -5.2, \$cnv, 'CLU'));
-		push(@bullets, Bullet->new($obj->{X}, $obj->{Y}, -5.2, -3, \$cnv, 'CLU'));
 		$obj->{ROUND}='STD';
 		return 1;
 	}
@@ -1274,7 +1241,8 @@ sub _generateBullet
 	my $magnitude = shift;
 	my $line = shift;
 	my ($x, $y, $addx, $addy) = $ship->getFireLine($magnitude,$line);
-	my $b = Bullet->new($x, $y, $addx, $addy, \$cnv, $roundType, _getNearestRoid($roundType));
+	my ($xs, $ys, $addxs, $addys) = $ship->getFireLine($ship->{thrust},0);
+	my $b = Bullet->new($x, $y, $addx+$addxs+$momx, $addy+$addys+$momy, \$cnv, $roundType, _getNearestRoid($roundType));
 	push(@bullets, $b);
 	if ($line==0){
 		$sound->play("bullet$roundType");
@@ -1388,7 +1356,8 @@ sub _doAmmo{
 		$text = 'Piercing Rounds' if ($type eq 'AP');
 		$text = 'Explosive Rounds' if ($type eq 'EXP');
 		$text = 'Beam Rounds' if ($type eq 'BEAM');
-		$text = 'Shockwave' if ($type eq 'WAVE');
+		if ($type eq 'WAVE'){$text = 'Shockwave' ;$ship->{rof} = 1;$ship->{pspeed} = 10;}
+		if ($type eq 'SEN') {$text = 'Sentry';$ship->{rof} = 2.5;$ship->{pspeed} = 2;}
 		$cntl->itemconfigure('specialtext', -text=>$text);
 		return 1;
 	}
@@ -1401,30 +1370,12 @@ sub _doAmmo{
 sub _endRounds
 {
 	$roundType = 'STD';
-}
-
-
-
-
-sub _doshockwave
-{
-	if($specialactive == 0){
-		$roundType = 'WAVE';
-		$ship->{rof} = 1;
-		$ship->{pspeed} = 10;
-		$cntl->itemconfigure('specialtext', -text=>'Shockwave');
-		return 1;
-	}
-	return 0;
-}
-
-sub _endshockwave
-{
-	$roundType = 'STD';
-	$roundType = 'BEAM' if ($ship->{guntype} == 2);
 	$ship->{pspeed} = $ship->{basepspeed};
 	$ship->{rof} = $ship->{baserof};
 }
+
+
+
 
 sub _blinky
 {
@@ -1696,23 +1647,6 @@ sub recordscore
 }
 
 
-sub _momentumData
-{
-
-	if ($ship->{thrust} != 0){
-		my ($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust},0);
-		$momx += $addx;
-		$momy += $addy;
-		my $sq = ($momx*$momx)+($momy*$momy);
-		my $mag = sqrt($sq);
-		if ($mag > $ship->{thrust}){
-			my $pc = $mag/$ship->{thrust};
-			$momy=$momy/$pc;
-			$momx=$momx/$pc;
-		}
-	}
-}
-
 sub firepress
 {
 	$fire = 1 if ($fire != -1);
@@ -1771,26 +1705,29 @@ sub _bank
 
 sub wkeydown
 {
-	$ship->{thrust} = $ship->{mspeed};
+	#$ship->{thrust} = $ship->{mspeed};
+	$ship->{thrust} = 1 if ($ship->{thrust} == 0);
+
 }
 
 sub wkeyup
 {
-	_momentumData();
+	my ($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust},0);
+	$momx = $addx;
+	$momy = $addy;
 	$ship->{thrust} = 0;
 }
 
-sub skeydown
-{
-	#$thrust = -1; not good with momentum as currently coded
-	$ship->{thrust} = 0; 
-}
+#sub skeydown
+#{
+#	#$thrust = -1; not good with momentum as currently coded
+#	$ship->{thrust} = 0; 
+#}
 
-sub skeyup
-{
-	_momentumData();
-	$ship->{thrust} = 0;
-}
+#sub skeyup
+#{
+#	$ship->{thrust} = 0;
+#}
 
 sub useBomb
 {

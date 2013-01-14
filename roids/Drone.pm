@@ -93,7 +93,7 @@ sub _moveBullet
 		$b->delete();
 		$self->{BULLET} = undef;
 	}else{
-		$b->draw($screenx, $screeny, 'roid'); #pretend its an asteroid, will get picked up in collision check with no more work
+		$b->draw($screenx, $screeny, 0, 'roid'); #pretend its an asteroid, will get picked up in collision check with no more work
 	}
 }
 

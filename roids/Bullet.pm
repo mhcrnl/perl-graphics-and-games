@@ -123,10 +123,34 @@ sub _generateBeam
 }
 
 
+sub doExplosion{
+	my $self = shift;
+	my $bularrayRef = shift;
+	my $cnv = $self->{CNV};
+	my $tag = "CLU";
+	my $x = $self->{X};
+	my $y = $self->{Y};
+	
+	my $tempvec = CanvasObject->new;
+	my @vector;
+	$vector[0] = [0,6,0];
+	$tempvec->{VERTEXLIST} = \@vector;
+	
+	foreach (0..14){
+		push(@$bularrayRef, Bullet->new($x, $y, $vector[0][0], $vector[0][1], $cnv, $tag));
+		$tempvec->rotate('z',24,0,0);
+	}
+	
+
+		$tempvec = undef;
+}
+
+
+
 sub removeAfterHit{
 
 	my $self=shift;
-	return 1 if ($self->{ROUND} =~ m/STD|CLU|TRK/);
+	return 1 if ($self->{ROUND} =~ m/STD|CLU|TRK|SER/);
 	
 	return 0;
 }
@@ -136,6 +160,7 @@ sub draw
 	my $self=shift;
 	my $xlimit=shift;
 	my $ylimit=shift;
+	my $bularrayRef = shift;
 	my $tag=shift;
 	$tag='bullet' if (! $tag);
 	
@@ -155,8 +180,38 @@ sub draw
 		#beam weapon
 		_generateBeam($self,$xlimit,$ylimit,$tag);
 		
-	}
-	else{
+	}elsif($self->{ROUND} eq 'SEN'){
+		#sentry
+		if ($self->{CNT} > 400){
+			$self->{X} = $xlimit+10;
+		}else{
+			if ($self->{ID} == 0){
+				$self->{ID} = $cnv->createOval($x, $y, $x+10, $y+10, -width=>2, -fill=>$colour, -tags=>$tag);
+			}else{
+				$cnv->coords($self->{ID},$x, $y, $x+10, $y+10);
+			}
+			
+		
+			if ($self->{CNT} % 3 == 0){
+			my $tempvec = CanvasObject->new;
+			my @vector;
+			$vector[0] = [0,6,0];
+			$tempvec->{VERTEXLIST} = \@vector;
+			
+			$tempvec->rotate('z',$self->{CNT}*3,0,0);	
+			
+			push(@$bularrayRef, Bullet->new($self->{X}+5, $self->{Y}+5, $vector[0][0], $vector[0][1], \$cnv, 'SER'));
+			push(@$bularrayRef, Bullet->new($self->{X}+5, $self->{Y}+5, -$vector[0][0], -$vector[0][1], \$cnv, 'SER'));
+				
+
+			$tempvec = undef;
+			}
+		}		
+		
+		$self->{CNT}++;
+		
+		
+	}else{
 		if ($self->{ID} == 0){
 			$self->{ID} = $cnv->createLine($x, $y, $self->{X}, $self->{Y}, -width=>2, -fill=>$colour, -tags=>$tag);
 		}else{
@@ -166,6 +221,10 @@ sub draw
 		if($self->{ROUND} eq 'CLU'){
 			#cluster munition
 			$self->{X} = $xlimit+10 if($self->{CNT} == 16);
+		}
+		elsif($self->{ROUND} eq 'SER'){
+			#sentry round
+			$self->{X} = $xlimit+10 if($self->{CNT} == 35);
 		}
 	}
 
