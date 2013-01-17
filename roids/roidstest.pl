@@ -680,12 +680,11 @@ sub _handlespecials
 		$cnv->delete('special');
 	}
 	elsif ($specialavailable == -1){
-		#my $rand = int(rand(300));
-		my $rand = 1;
+		my $rand = int(rand(300));
+		#my $rand = 1;
 		if ($rand == 1){
-			#my $temp = @specials;
-			#$specialavailable = int(rand($goodspecials-0.01));
-			$specialavailable = 9;
+			$specialavailable = int(rand($goodspecials-0.01));
+			#$specialavailable = 9;
 			$specialstarttime = time();
 			&{$specials[$specialavailable][0]};
 		}
@@ -1242,6 +1241,7 @@ sub _generateBullet
 	my $line = shift;
 	my ($x, $y, $addx, $addy) = $ship->getFireLine($magnitude,$line);
 	my ($xs, $ys, $addxs, $addys) = $ship->getFireLine($ship->{thrust},0);
+	#momentum of ship now imparted to bullets
 	my $b = Bullet->new($x, $y, $addx+$addxs+$momx, $addy+$addys+$momy, \$cnv, $roundType, _getNearestRoid($roundType));
 	push(@bullets, $b);
 	if ($line==0){
@@ -1713,8 +1713,8 @@ sub wkeydown
 sub wkeyup
 {
 	my ($x, $y, $addx, $addy) = $ship->getFireLine($ship->{thrust},0);
-	$momx = $addx;
-	$momy = $addy;
+	$momx = $addx+$momx;
+	$momy = $addy+$momy;
 	$ship->{thrust} = 0;
 }
 

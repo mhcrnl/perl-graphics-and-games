@@ -192,16 +192,17 @@ sub draw
 			}
 			
 		
-			if ($self->{CNT} % 3 == 0){
+			if ($self->{CNT} % 2 == 0){
 			my $tempvec = CanvasObject->new;
 			my @vector;
 			$vector[0] = [0,6,0];
 			$tempvec->{VERTEXLIST} = \@vector;
 			
-			$tempvec->rotate('z',$self->{CNT}*3,0,0);	
+			$tempvec->rotate('z',$self->{CNT}*5,0,0);	
 			
-			push(@$bularrayRef, Bullet->new($self->{X}+5, $self->{Y}+5, $vector[0][0], $vector[0][1], \$cnv, 'SER'));
-			push(@$bularrayRef, Bullet->new($self->{X}+5, $self->{Y}+5, -$vector[0][0], -$vector[0][1], \$cnv, 'SER'));
+			#changed to impart sentry momentum to the sentry rounds
+			push(@$bularrayRef, Bullet->new($self->{X}+5, $self->{Y}+5, $self->{ADDX}+$vector[0][0], $self->{ADDY}+$vector[0][1], \$cnv, 'SER'));
+			push(@$bularrayRef, Bullet->new($self->{X}+5, $self->{Y}+5, $self->{ADDX}-$vector[0][0], $self->{ADDY}-$vector[0][1], \$cnv, 'SER'));
 				
 
 			$tempvec = undef;
