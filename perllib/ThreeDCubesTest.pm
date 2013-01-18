@@ -7,6 +7,8 @@ use CanvasObject;
 use Math::Trig;
 use GamesLib;
 use LineEq;
+use threads;
+use threads::shared;
 use strict;
 #cut down version for roids, no set-up for other types of object, left out JBwingui specific things
 #objects to be set-up outside this package not in it, so don't have to do specific object set-up functions
@@ -410,6 +412,9 @@ sub moveCameraInWorld
 sub _updateAll
 {
 	my $self = shift;
+	if ($self->{PXDRAW} == 1){
+			_drawObject($self,0,0); #pixel draw always refreshes all items so only call it once
+	}else{
 	for(my $i = 0 ; $i < @{$self->{DRAWORDER}} ; $i++){
 		if (! $self->{SHAPES}[$self->{DRAWORDER}[$i]] eq "")
 		{
@@ -417,6 +422,7 @@ sub _updateAll
 			#draw mode 0 refreshes entire display, deletes all items and redraws
 			#ensures draw order is correct, but might be a better way somewhere
 		}
+	}
 	}
 	${$self->{MW}}->update;
 }
@@ -526,7 +532,7 @@ sub redraw
 	my $self = shift;
 	my $objs = shift; #array ref
 	my $mode = shift;
-	
+	return if ($self->{PXDRAW} == 1);
 	#may want to factor in draworder - currently will redraw in order given
 	
 	foreach (@$objs){
@@ -546,6 +552,127 @@ sub getItemIds
 
 sub _drawObject
 {
+	my $self = shift;
+	my $drawmode = shift;
+	my $obj = shift;
+	if ($self->{PXDRAW}==0){_drawObjectPoly($self,$drawmode,$obj);}
+	elsif ($self->{PXDRAW}==1){_drawObjectPixel($self);} #has to redraw everything regardless
+}
+
+
+sub _drawObjectPixel
+{
+	#removes and updates all objects (recalc of z buffer)
+	
+	#might test out a threaded function here - won't make much difference though as it's the actual drawing that takes all the time
+	#except that the threads module doesn't play nice with Tk elements (as each thread basically starts as a copy of the state of calling thread when created) 
+	#- so the interpreter will attempt to close windows when a thread is joined and the interpreter goes splat! One way around it is not to close the thread, but that's a shit idea really!
+	#would need a thread pool before before any Tk elements are created, need some rejigging as the MainWindow and Canvas elements are passed into this module
+	#but a pool would steal some cpu cycles when not used - need some Java style threading
+	my $self = shift;
+	my $displaycanvas = $self->{DISPLAY};
+	my %zbuf :shared;
+ # pixel draw - very slow (in Tk) - easily deals with overlapping objects - easy collision detection (though not checking that here)
+		$$displaycanvas->delete('all');
+		#print "-----\n";
+		
+		my $threadcnt = 4;
+		my @tnotify :shared;
+		my @thread = (0) x $threadcnt;
+		@tnotify = (0) x $threadcnt;
+		for(my $j = 0 ; $j < @{$self->{DRAWORDER}} ; $j++){
+			#_drawObjectPixelWorker($self,$j,\%zbuf);
+			#initial test of threading executing 4 threads, doesn't reuse thread
+			while(1){
+				#find a free thread
+				my $sent = 0;
+				for (my $id = 0 ; $id < $threadcnt ; $id++){
+					if ($tnotify[$id] != 1){
+						#$thread[$id]->join() if ($tnotify[$id] == 2); #see threads/Tk problem above
+						$tnotify[$id] = 1;
+						$thread[$id] = threads->new(\&_drawObjectPixelWorker,$self,$j,\%zbuf,$id,\@tnotify);
+						$sent = 1;
+						last;
+					}
+				}
+				last if ($sent == 1);
+			}
+			
+		}
+		while(1){
+			#wait for threads to finish
+			my $done = 1;
+			for (my $id = 0 ; $id < $threadcnt ; $id++){
+				
+				if ($tnotify[$id] == 1){
+					#still running
+					$done = 0;
+				}
+				#elsif ($tnotify[$id] == 2){
+				#	$thread[$id]->join();
+				#	$tnotify[$id] = 0;
+				#} #see threads/Tk problem above
+				
+			}
+			last if ($done == 1);
+		}
+		foreach my $key (keys %zbuf){
+			#print "$key\n";
+			my $tempx = $key;
+			my $tempy = $key;
+			if ($key=~m/^(\d+)_(\d+)c$/){
+				$tempy = $2;
+				$tempx = $1;
+				#draw pixels as defined by zbuffer
+				$$displaycanvas->createRectangle($tempx, $tempy,$tempx, $tempy, -fill=>$zbuf{$key},-outline=>$zbuf{$key});
+			}
+		}
+		
+}
+
+sub _drawObjectPixelWorker{
+	#separated this with a view to threading
+	my $self = shift;
+	my $j = shift;
+	my $zbuf = shift;
+	my $tid = shift;
+	my $notify = shift;
+	my $fovflag = $self->{CAMERA_VIEW_ANGLE};
+			if (! $self->{SHAPES}[$self->{DRAWORDER}[$j]] eq ""){
+				my $obj = 	$self->{DRAWORDER}[$j];
+				#print "$obj\n";
+				my $vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
+				my $facetVertices = $self->{SHAPES}[$obj]->{FACETVERTICES};
+				my $arrayref;
+				my @camVertList;
+				if ($fovflag){
+					$arrayref = _getFieldView($self,$obj, 'SHAPES');
+					@camVertList = @{$arrayref};
+				}else{
+					$arrayref = _getPerspective($self,$obj);
+					@camVertList = @{$arrayref};
+				}
+				
+				for (my $i = 0 ; $i < @{$facetVertices} ; $i++){
+				my $idno = $$facetVertices[$i][3];
+				
+				my $bf = _checkBackFace($self,\@{$camVertList[$$facetVertices[$i][0]]},\@{$camVertList[$$facetVertices[$i][1]]},\@{$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
+				
+				if ($bf < 0){
+					my $basecolour = 0;
+					if (scalar @{$$facetVertices[$i]} > 4){
+						$basecolour = $$facetVertices[$i][4];
+					}
+					_buildZBuffer($i,$obj,$self,$basecolour,$zbuf,\@camVertList,$vertexList,$facetVertices,$fovflag, $idno);
+				}
+				}
+			}
+			@$notify[$tid] = 2;
+}
+
+sub _drawObjectPoly
+{
+	#n.b. only creates or updates the given object
 	my $self = shift;
 	my $drawmode = shift;
 	my $obj = shift;
@@ -595,7 +722,7 @@ sub _drawObject
 	my $vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
 	my $focuspoint = $self->{SHAPES}[$obj]->{FOCUSPOINT};
 
-	my %zbuf;
+	
 	#make sure display array is empty and any items associated are removed
 	if ($drawmode == 0){
 	foreach my $itemid (grep{$_>0} @{$displayitems}){
@@ -606,51 +733,7 @@ sub _drawObject
 
 	my $outline='';
 	
-	if ($self->{PXDRAW}==1){ # pixel draw - very slow (in Tk) - easily deals with overlapping objects - easy collision detection (though not checking that here)
-		$$displaycanvas->delete('all');
-		#print "-----\n";
-		for(my $j = 0 ; $j < @{$self->{DRAWORDER}} ; $j++){
-			if (! $self->{SHAPES}[$self->{DRAWORDER}[$j]] eq ""){
-				$obj = 	$self->{DRAWORDER}[$j];
-				#print "$obj\n";
-				$vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
-				$facetVertices = $self->{SHAPES}[$obj]->{FACETVERTICES};
-				if ($fovflag){
-					$arrayref = _getFieldView($self,$obj, 'SHAPES');
-					@camVertList = @{$arrayref};
-				}else{
-					$arrayref = _getPerspective($self,$obj);
-					@camVertList = @{$arrayref};
-				}
-				
-				for (my $i = 0 ; $i < @{$facetVertices} ; $i++){
-				$idno = $$facetVertices[$i][3];
-				
-				$bf = _checkBackFace($self,\@{$camVertList[$$facetVertices[$i][0]]},\@{$camVertList[$$facetVertices[$i][1]]},\@{$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
-				
-				if ($bf < 0){
-					my $basecolour = 0;
-					if (scalar @{$$facetVertices[$i]} > 4){
-						$basecolour = $$facetVertices[$i][4];
-					}
-					_pixelDraw($displaycanvas,$i,$obj,$self,$basecolour,\%zbuf,\@camVertList,$vertexList,$facetVertices,$fovflag, $idno);
-				}
-				}
-			}
-		}
-		foreach my $key (keys %zbuf){
-			#print "$key\n";
-			my $tempx = $key;
-			my $tempy = $key;
-			if ($key=~m/^(\d+)_(\d+)c$/){
-				$tempy =~ s/^\d+_(\d+)c$/$1/;
-				$tempx =~ s/^(\d+)_\d+c$/$1/;
-				#draw pixels as defined by zbuffer
-				$$displaycanvas->createRectangle($tempx, $tempy,$tempx, $tempy, -fill=>$zbuf{$key},-outline=>$zbuf{$key});
-			}
-		}
-	
-	}else{ #polygon draw - not bad on speed but difficult to order objects
+	#polygon draw - not bad on speed but difficult to order objects
 	
 	for (my $i = 0 ; $i < @{$facetVertices} ; $i++)
 	{
@@ -755,7 +838,7 @@ sub _drawObject
 		}
 				
 	} #end for
-	}
+	
 	
 
 }
@@ -797,12 +880,12 @@ sub _getTriangleCentre
 	
 }
 
-sub _pixelDraw #called per facet
+sub _buildZBuffer #called per facet
 {
 	#really only use for static stuff TK is not nearly fast enough
 	
 
-	my $cnv=shift;
+	#my $cnv=shift;
 	my $facetNo=shift;
 	my $obj = shift;
 	my $self = shift;
@@ -954,7 +1037,6 @@ sub _pixelDraw #called per facet
     	 
     	 #scanline for each x of extent of triangle
     	 foreach my $x (int($minx+0.5)..int($maxx+0.5)){
-    	 
     	 	my @activeLines =();
     	 	my @yVals =();
     	 	for (my $i = 0 ; $i < @line ; $i++){
@@ -998,6 +1080,9 @@ sub _pixelDraw #called per facet
 		
 		my $lineLen =  int($yVals[1]+0.5) - int($yVals[0]+0.5);
 		my @yToProcess = ();
+		
+		{ #lock block
+		lock($zbuf);
 		if ($lineLen != 0){
 		foreach my $y (int($yVals[0]+0.5)..int($yVals[1]+0.5)){
 		if ($y >=$miny && $y <=$maxy){
@@ -1010,10 +1095,13 @@ sub _pixelDraw #called per facet
 			}
 		
 			#check if hidden by something
+
 			my $zval = $zbuf->{"$x"."_$y"."z"};
+			
 			if ($z >= 0 && (! $zval || $zval>$z )){
 				push (@yToProcess,[$y,$z]);
 			}
+			
 		}
 		}
 		}
@@ -1053,12 +1141,14 @@ sub _pixelDraw #called per facet
 			$colourIntAtThisPoint = 1 if ($colourIntAtThisPoint > 1);
 			my $colour = _getColourString($colourIntAtThisPoint*255,$basecolour,$colourIntAtThisPoint,$self,$obj);
 			#write pixel details to zbuffer 
+			
 			$zbuf->{"$x"."_$y"."z"}=$z;	
 			$zbuf->{"$x"."_$y"."c"}=$colour;
+			
 
 
 		} #end for
-
+		} #end lock
     	 	
     	 } #end scanline foreach 
  }
