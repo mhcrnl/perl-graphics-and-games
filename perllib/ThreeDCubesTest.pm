@@ -148,7 +148,6 @@ sub getColour
 sub rotate
 {
 	#around object centre point
-	#could update to rotate around other points too
 	my $self= shift;
 	my $obj = shift;
 	my $axis = shift;
@@ -156,31 +155,9 @@ sub rotate
 	my $angle = shift;
 	my $noupdate = shift;
 	my $centre = $self->{SHAPES}[$obj]->getCentre();
-	#print "$$centre[0] ; $$centre[1] ; $$centre[2]\n";
-	my @c;
-	my @trans;
-	my $mw = $self->{MW};
-	if ($axis eq 'x'){
-		@c = ($$centre[1],$$centre[2]);
-		@trans = (0,-$$centre[1],-$$centre[2]);
-	}elsif ($axis eq 'y'){
-		@c = ($$centre[0],$$centre[2]);
-		@trans = (-$$centre[0],0,-$$centre[2]);
-	}else{
-		@c = ($$centre[0],$$centre[1]);
-		@trans = (-$$centre[0],-$$centre[1],0);
-	}
-	#negative rate will move object in anti-clockwise direction
-	my $repeat = int($angle/$rate);
-	$repeat = $repeat*-1 if ($repeat < 0);
-	for (1..$repeat){
-		$self->{SHAPES}[$obj]->translate($trans[0], $trans[1], $trans[2]);
-		$self->{SHAPES}[$obj]->rotate($axis,$rate,$c[0],$c[1]);
-		if (! $noupdate){
-			_drawObject($self,1,$obj);
-			$$mw->update;
-		}
-	}
+	
+	rotateAroundPoint($self,$obj,$axis,$rate,$angle,$centre,$noupdate);
+
 	
 }
 
@@ -578,24 +555,31 @@ sub _drawObjectPixel
 		
 		my $threadcnt = 4;
 		my @tnotify :shared;
+		my @tdata :shared;
 		my @thread = (0) x $threadcnt;
 		@tnotify = (0) x $threadcnt;
+		@tdata = (-1) x $threadcnt;
+		
+		
 		for(my $j = 0 ; $j < @{$self->{DRAWORDER}} ; $j++){
 			#_drawObjectPixelWorker($self,$j,\%zbuf);
-			#initial test of threading executing 4 threads, doesn't reuse thread
+			#test of threading executing 4 threads, threads are reused
 			while(1){
-				#find a free thread
+				#find a free thread 
 				my $sent = 0;
 				for (my $id = 0 ; $id < $threadcnt ; $id++){
 					if ($tnotify[$id] != 1){
-						#$thread[$id]->join() if ($tnotify[$id] == 2); #see threads/Tk problem above
 						$tnotify[$id] = 1;
-						$thread[$id] = threads->new(\&_drawObjectPixelWorker,$self,$j,\%zbuf,$id,\@tnotify);
+						$tdata[$id] = $j;
+						if ($thread[$id] == 0){
+							$thread[$id] = threads->new(\&_drawObjectPixelWorker,$self,\%zbuf,$id,\@tnotify,\@tdata);
+						}
 						$sent = 1;
 						last;
 					}
 				}
-				last if ($sent == 1);
+				if ($sent == 1){last;}
+				else {select (undef, undef, undef, 0.25);}
 			}
 			
 		}
@@ -608,13 +592,15 @@ sub _drawObjectPixel
 					#still running
 					$done = 0;
 				}
-				#elsif ($tnotify[$id] == 2){
-				#	$thread[$id]->join();
+				elsif ($tnotify[$id] == 2){
+					$tdata[$id] = -1;
+				#	$thread[$id]->join(); #see threads/Tk problem above
 				#	$tnotify[$id] = 0;
-				#} #see threads/Tk problem above
+				} 
 				
 			}
-			last if ($done == 1);
+			if ($done == 1){last;}
+			else {select (undef, undef, undef, 0.25);}
 		}
 		foreach my $key (keys %zbuf){
 			#print "$key\n";
@@ -633,13 +619,19 @@ sub _drawObjectPixel
 sub _drawObjectPixelWorker{
 	#separated this with a view to threading
 	my $self = shift;
-	my $j = shift;
 	my $zbuf = shift;
 	my $tid = shift;
 	my $notify = shift;
+	my $tdata = shift;
 	my $fovflag = $self->{CAMERA_VIEW_ANGLE};
-			if (! $self->{SHAPES}[$self->{DRAWORDER}[$j]] eq ""){
-				my $obj = 	$self->{DRAWORDER}[$j];
+	
+	while ($$notify[$tid] > -1){
+			if ($$tdata[$tid] == -1){
+				select (undef, undef, undef, 0.5);
+				next;
+			}
+			if (! $self->{SHAPES}[$self->{DRAWORDER}[$$tdata[$tid]]] eq ""){
+				my $obj = 	$self->{DRAWORDER}[$$tdata[$tid]];
 				#print "$obj\n";
 				my $vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
 				my $facetVertices = $self->{SHAPES}[$obj]->{FACETVERTICES};
@@ -659,15 +651,14 @@ sub _drawObjectPixelWorker{
 				my $bf = _checkBackFace($self,\@{$camVertList[$$facetVertices[$i][0]]},\@{$camVertList[$$facetVertices[$i][1]]},\@{$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
 				
 				if ($bf < 0){
-					my $basecolour = 0;
-					if (scalar @{$$facetVertices[$i]} > 4){
-						$basecolour = $$facetVertices[$i][4];
-					}
-					_buildZBuffer($i,$obj,$self,$basecolour,$zbuf,\@camVertList,$vertexList,$facetVertices,$fovflag, $idno);
+					_buildZBuffer($i,$obj,$self,(@{$$facetVertices[$i]} > 4) ? $$facetVertices[$i][4] : 0,$zbuf,\@camVertList,$vertexList,$facetVertices,$fovflag, $idno);
 				}
 				}
 			}
-			@$notify[$tid] = 2;
+			$$tdata[$tid] = -1;
+			$$notify[$tid] = 2;
+			
+	}
 }
 
 sub _drawObjectPoly
@@ -677,17 +668,9 @@ sub _drawObjectPoly
 	my $drawmode = shift;
 	my $obj = shift;
 	my $fovflag = $self->{CAMERA_VIEW_ANGLE};
-	my $x;
-	my $y;
-	my $x1;
-	my $y1;
-	my $x2;
-	my $y2;
-	my $bf;
 	my $colour;
 	my $ditem;
 	my $drawflag = 1;
-	my $idno = 0;
 	my $lastobj = 0;
 	my $arrayref;
 	my @camVertList; #object vertexlist transformed to camera coordinates
@@ -745,15 +728,15 @@ sub _drawObjectPoly
 		$$vertexList[$$facetVertices[$i][1]][2] < $$focuspoint[2] &&
 		$$vertexList[$$facetVertices[$i][2]][2] < $$focuspoint[2]) ||
 		$fovflag);
-		$x = $camVertList[$$facetVertices[$i][0]][0];
-		$y = $camVertList[$$facetVertices[$i][0]][1];
-		$x1 = $camVertList[$$facetVertices[$i][1]][0];
-		$y1 = $camVertList[$$facetVertices[$i][1]][1];
-		$x2 = $camVertList[$$facetVertices[$i][2]][0];
-		$y2 = $camVertList[$$facetVertices[$i][2]][1];
+		my $x = $camVertList[$$facetVertices[$i][0]][0];
+		my $y = $camVertList[$$facetVertices[$i][0]][1];
+		my $x1 = $camVertList[$$facetVertices[$i][1]][0];
+		my $y1 = $camVertList[$$facetVertices[$i][1]][1];
+		my $x2 = $camVertList[$$facetVertices[$i][2]][0];
+		my $y2 = $camVertList[$$facetVertices[$i][2]][1];
 			
-		$idno = $$facetVertices[$i][3];
-		$bf = _checkBackFace($self,\@{$camVertList[$$facetVertices[$i][0]]},\@{$camVertList[$$facetVertices[$i][1]]},\@{$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
+		my $idno = $$facetVertices[$i][3];
+		my $bf = _checkBackFace($self,\@{$camVertList[$$facetVertices[$i][0]]},\@{$camVertList[$$facetVertices[$i][1]]},\@{$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
 
 		if ($bf < 0){ #minus values mean vectors heading towards each other, therefore front face	
 				#$bf = 1; #now check if off screen - doesn't draw if all three points are off screen - anything behind camera already not drawn
@@ -768,10 +751,10 @@ sub _drawObjectPoly
 				#}
 				#however it is possible for all three points to be offscreen and the facet still be visible in front of you - so taken this out for rethink
 				
-				if (($camVertList[$$facetVertices[$i][0]][0] < 0 && $camVertList[$$facetVertices[$i][1]][0] < 0 && $camVertList[$$facetVertices[$i][2]][0] < 0)
-				 || ($camVertList[$$facetVertices[$i][1]][0] < 0 && $camVertList[$$facetVertices[$i][1]][1] < 0 && $camVertList[$$facetVertices[$i][2]][1] < 0)
-				 || ($camVertList[$$facetVertices[$i][0]][0] > $$displaycanvas->Width && $camVertList[$$facetVertices[$i][1]][0] > $$displaycanvas->Width && $camVertList[$$facetVertices[$i][2]][0] > $$displaycanvas->Width)
-				 || ($camVertList[$$facetVertices[$i][1]][0] > $$displaycanvas->Height && $camVertList[$$facetVertices[$i][1]][1] > $$displaycanvas->Height && $camVertList[$$facetVertices[$i][2]][1] > $$displaycanvas->Height)
+				if (($x < 0 && $x1 < 0 && $x2 < 0)
+				 || ($x1 < 0 && $y1 < 0 && $y2 < 0)
+				 || ($x > $$displaycanvas->Width && $x1 > $$displaycanvas->Width && $x2 > $$displaycanvas->Width)
+				 || ($x1 > $$displaycanvas->Height && $y1 > $$displaycanvas->Height && $y2 > $$displaycanvas->Height)
 				){ $bf=1;} #this won't draw if all points of the facet are off screen on the same side
 				
 				if ($bf < 0){
@@ -779,10 +762,8 @@ sub _drawObjectPoly
 				if ($self->{SHAPES}[$obj]->{NOFILL} == 1){
 					$colour = $self->{SHAPES}[$obj]->{SHADE};
 				}
-				elsif (@{$$facetVertices[$i]} > 4){
-					$colour = _getShade($self,\@{$$vertexList[$$facetVertices[$i][0]]},\@{$$vertexList[$$facetVertices[$i][1]]},\@{$$vertexList[$$facetVertices[$i][2]]},$obj,\@point,$$facetVertices[$i][4]);
-				}else{
-					$colour = _getShade($self,\@{$$vertexList[$$facetVertices[$i][0]]},\@{$$vertexList[$$facetVertices[$i][1]]},\@{$$vertexList[$$facetVertices[$i][2]]},$obj,\@point);
+				else{
+					$colour = _getShade($self,\@{$$vertexList[$$facetVertices[$i][0]]},\@{$$vertexList[$$facetVertices[$i][1]]},\@{$$vertexList[$$facetVertices[$i][2]]},$obj,\@point,(@{$$facetVertices[$i]} > 4) ? $$facetVertices[$i][4] : 0);
 				}
 				if ($self->{SHAPES}[$obj]->{OUTL} eq ''){
 					$outline=$colour;
@@ -1299,10 +1280,10 @@ sub _getFieldView
 		my $z = $tempvl[$i][2];
 		my $zed = $z-$eyez;
 
-		#if ($zed > 0){ # if not behind camera
+
 			#change vertex position depending on where the camera is pointing and how far away it is
-			#old version - this doesn't distort outside the field of view - but can't generate a (camera coordinate) point behind the camera - draws a mess
-			$zed = 1 if ($zed == 0);
+			
+			$zed = 1 if ($zed <= 1);
 			my @vectortopoint = (($x-$eyex),($y-$eyey),$zed);
 			_normalise(\@vectortopoint);
 			my $angletopoint = atan($vectortopoint[0]/$vectortopoint[2]); #radians
@@ -1320,56 +1301,6 @@ sub _getFieldView
 			
 				$camVertList[$i] = [$cx+($dx*$scaling), $cy+($dy*$scaling),$zed];
 
-			
-			#this will break for >= 180 field of view (usually isn't likely)
-			
-			
-			
-			#new version - uses the percentage of the view angle so can generate points behind the camera - however don't think it is good enough - the points generated when outside the field of view don't seem to match up to where they should be
-			#my $minusflag = 0;
-			#if ($zed < 0){
-			#	$zed=$zed*-1;
-			#	$minusflag=1;
-			#}
-			
-			#my @vectortopoint = (($x-$eyex),($y-$eyey),$zed);
-			#_normalise(\@vectortopoint);
-			#my $angletopointx = 90;
-			#$angletopointx = rad2deg(atan($vectortopoint[0]/$vectortopoint[2])) if ($zed != 0);
-			
-					
-			
-			#y component
-			#my $angletopointy = 90;
-			#$angletopointy = rad2deg(atan($vectortopoint[1]/$vectortopoint[2])) if ($zed != 0);
-			
-			#if ($minusflag){ #for when behind camera, don't think this is the right way
-			#	$angletopointx=-180-$angletopointx if ($angletopointx < 0);
-			#	$angletopointx=180-$angletopointx if ($angletopointx > 0);
-			#	$angletopointy=-180-$angletopointy if ($angletopointy < 0);
-			#	$angletopointy=180-$angletopointy if ($angletopointy > 0);
-			#	$zed=$zed*-1;
-			#}
-			#my $scalex = $angletopointx/($viewangle/2);
-			#my $scaley = $angletopointy/($viewangle/2);
-			
-			#my $cx = $dispwidth/2;
-			#my $cy = $dispheight/2;
-			
-			#my $centreToEdge = $cx;
-			#$centreToEdge = $cy if ($dispheight > $dispwidth)	;	
-			
-	
-			#	$camVertList[$i] = [$cx+($centreToEdge*$scalex), $cy+($centreToEdge*$scaley),$zed];
-
-
-			#this probably break for >= 180 field of view
-
-			#print $camVertList[$i][0]." : ".$camVertList[$i][1]."\n";
-			
-			
-		#}
-		
 
 	}
 	$tempobj=undef;
