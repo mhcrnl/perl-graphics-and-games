@@ -1270,7 +1270,7 @@ sub _getFieldView
 	{
 	
 	
-		$camVertList[$i] = [0, 0,-1000]; #all points behind camera end up here, I can see this possibly being a problem
+		#$camVertList[$i] = [0, 0,-1000]; #all points behind camera end up here, I can see this possibly being a problem
 		#though in polygon mode as soon as a vertex gets < 0, checkBackFace treats it as a backface and the triangle isn't drawn
 		
 		#this also currently applies to pixel mode though, it might be nice for that to draw the visible part - would need this to give the actual coord for a point behind the camera
@@ -1283,7 +1283,7 @@ sub _getFieldView
 
 			#change vertex position depending on where the camera is pointing and how far away it is
 			
-			$zed = 1 if ($zed <= 1);
+			$zed = 1 if ($zed <= 1 && $self->{PXDRAW} == 1); #a fudge but still rubbish for partially behind camera stuff
 			my @vectortopoint = (($x-$eyex),($y-$eyey),$zed);
 			_normalise(\@vectortopoint);
 			my $angletopoint = atan($vectortopoint[0]/$vectortopoint[2]); #radians
@@ -1332,6 +1332,8 @@ sub _checkBackFace
 	#return 1 if (($minz+(($maxz-$minz)/2)) < -1); #average transformed z value of facet
 
 	return 1 if ($minz < 0 && $self->{PXDRAW} == 0 ); #actually only need minz, if it is less than zero do not draw the facet
+
+	return 1 if ($$a[2] <= 1 && $$b[2] <= 1 && $$c[2] <= 1);
 	#pixel mode in perspective mode draws fine, fov mode needs fixing
 	#this can make an object disappear in polygon mode when most of it should still be visible, for polygon draw we would have to modify it (and it wouldn't be a triangle anymore
 	
