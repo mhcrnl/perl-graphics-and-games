@@ -1238,9 +1238,7 @@ sub _getFieldView
 	my $self = shift;
 	my $obj = shift;
 	my $hashkey = shift;
-	my $viewangle = $self->{CAMERA_VIEW_ANGLE};
-	my $dispheight = ${$self->{DISPLAY}}->Height;
-	my $dispwidth = ${$self->{DISPLAY}}->Width;
+	
 	my $eyez = $self->{CAMERA}[2];
 	my $eyey = $self->{CAMERA}[1];
 	my $eyex = $self->{CAMERA}[0]; 
@@ -1275,38 +1273,67 @@ sub _getFieldView
 		
 		#this also currently applies to pixel mode though, it might be nice for that to draw the visible part - would need this to give the actual coord for a point behind the camera
 		#but generating the proper coord behind the camera is proving tricky!
-		my $x = $tempvl[$i][0];
-		my $y = $tempvl[$i][1];
-		my $z = $tempvl[$i][2];
-		my $zed = $z-$eyez;
 
-
-			#change vertex position depending on where the camera is pointing and how far away it is
-			
-			$zed = 1 if ($zed <= 1 && $self->{PXDRAW} == 1); #a fudge but still rubbish for partially behind camera stuff
-			my @vectortopoint = (($x-$eyex),($y-$eyey),$zed);
-			_normalise(\@vectortopoint);
-			my $angletopoint = atan($vectortopoint[0]/$vectortopoint[2]); #radians
-			my $xunitsAtz = (tan(deg2rad($viewangle/2)) * $zed)*2;
-			my $dx = (tan($angletopoint) *$zed);
-
-			#y component
-			$angletopoint = atan($vectortopoint[1]/$vectortopoint[2]); #radians
-			my $dy = (tan($angletopoint) *$zed);
-
-			my $scaling = $dispwidth/$xunitsAtz; #make sure using longest axis - it may be Y, though usually not likely
-			$scaling = $dispheight/$xunitsAtz if ($dispheight > $dispwidth);
-			my $cx = $dispwidth/2;
-			my $cy = $dispheight/2;		
-			
-				$camVertList[$i] = [$cx+($dx*$scaling), $cy+($dy*$scaling),$zed];
-
+		my $ref = _getCameraCoords($self,$tempvl[$i]);
+		$camVertList[$i] = [$$ref[0],$$ref[1],$$ref[2]];
 
 	}
 	$tempobj=undef;
 	return \@camVertList;
 
 
+}
+
+sub _getCameraCoords{
+	my $self = shift;
+	my $vl = shift;
+	my $eyez = $self->{CAMERA}[2];
+	my $eyey = $self->{CAMERA}[1];
+	my $eyex = $self->{CAMERA}[0]; 
+	
+	my $viewangle = $self->{CAMERA_VIEW_ANGLE};
+	my $dispheight = ${$self->{DISPLAY}}->Height;
+	my $dispwidth = ${$self->{DISPLAY}}->Width;
+	my $x = $$vl[0];
+	my $y = $$vl[1];
+	my $z = $$vl[2];
+	my $zed = $z-$eyez;
+	my @camVertList = (0,0,-1000);
+
+		#change vertex position depending on where the camera is pointing and how far away it is
+		$zed = 1 if ($zed < 1 && $zed >= 0);
+
+		if ($zed < 0 && $self->{PXDRAW} == 1){ #point behind camera in pixel mode
+			#get point if it was at z=1, get point if z=z*-1, add the difference to point at z=1
+			my @zAt1 = ($x,$y,1);
+			my @invZ = ($x,$y,$z*-1);
+			my $camZat1 = _getCameraCoords($self,\@zAt1);
+			my $camInvZ = _getCameraCoords($self,\@invZ);
+			@camVertList = ($$camZat1[0]+($$camZat1[0]-$$camInvZ[0]),$$camZat1[1]+($$camZat1[1]-$$camInvZ[1]),$zed);
+			
+		}elsif ($zed < 0 && $self->{PXDRAW} == 0){
+			#would have to find points where lines crossed z = 0 and use those, likely means building other triangles too
+			#until then polygon mode triangles disppear as soon as one point is behind the camera
+		}elsif ($zed > 0){
+			my @vectortopoint = (($x-$eyex),($y-$eyey),$zed);
+			_normalise(\@vectortopoint);
+			my $angletopoint = atan($vectortopoint[0]/$vectortopoint[2]); #radians
+			my $xunitsAtz = (tan(deg2rad($viewangle/2)) * $zed)*2;
+			my $dx = (tan($angletopoint) *$zed);
+	
+			#y component
+			$angletopoint = atan($vectortopoint[1]/$vectortopoint[2]); #radians
+			my $dy = (tan($angletopoint) *$zed);
+	
+			my $scaling = $dispwidth/$xunitsAtz; #make sure using longest axis - it may be Y, though usually not likely
+			$scaling = $dispheight/$xunitsAtz if ($dispheight > $dispwidth);
+			my $cx = $dispwidth/2;
+			my $cy = $dispheight/2;		
+
+	
+			@camVertList = ($cx+($dx*$scaling), $cy+($dy*$scaling),$zed);
+		}
+	return \@camVertList;
 }
 
 
@@ -1333,7 +1360,7 @@ sub _checkBackFace
 
 	return 1 if ($minz < 0 && $self->{PXDRAW} == 0 ); #actually only need minz, if it is less than zero do not draw the facet
 
-	return 1 if ($$a[2] <= 1 && $$b[2] <= 1 && $$c[2] <= 1);
+	return 1 if ($$a[2] < 1 && $$b[2] < 1 && $$c[2] < 1);
 	#pixel mode in perspective mode draws fine, fov mode needs fixing
 	#this can make an object disappear in polygon mode when most of it should still be visible, for polygon draw we would have to modify it (and it wouldn't be a triangle anymore
 	
