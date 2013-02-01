@@ -15,6 +15,7 @@ use strict;
 #use generic create object function instead, this basically handles drawing and moving etc
 
 
+
 sub new{
 	shift;
 	my $displaycanvas = shift;
@@ -31,8 +32,14 @@ sub new{
     	$self->{LIGHTSOURCE}=$lightsource; #can currently handle only one source of light
     	$self->{CNT}=0;
     	$self->{DISPLAY}=$displaycanvas;
-    	$self->{CAMERA}=[int($$displaycanvas->Width/2),int($$displaycanvas->Height/2),0]; #will probably want to handle screen resize
-    	
+    	$self->{CAMERA}=[0,0,0];
+    	$self->{HEIGHT} = 0;
+    	$self->{WIDTH} = 0;
+    	if ($displaycanvas != 0){
+    		$self->{CAMERA}=[int($$displaycanvas->Width/2),int($$displaycanvas->Height/2),0]; #will probably want to handle screen resize
+    		$self->{HEIGHT} = $$displaycanvas->Height;
+    		$self->{WIDTH} = $$displaycanvas->Width;
+		}
     	$self->{CAMVEC_F} = [0,0,1]; #forward
     	$self->{CAMVEC_U} = [0,-1,0]; #up
     	$self->{CAMVEC_R} = [1,0,0]; #right
@@ -45,7 +52,8 @@ sub new{
     	
     	$self->{PXDRAW} = $pixeldraw;
     	$self->{MW}=$mw;
-    	
+    	$self->{ZBUF} = 0;
+    	$self->{BUFREADY}=0;
 	bless $self;
 	return $self;
 
@@ -95,8 +103,8 @@ sub registerObject
 		$objnum = $self->{CNT};
 		$self->{CNT}++;
 	}
-	my $dispheight = ${$self->{DISPLAY}}->Height;
-	my $dispwidth = ${$self->{DISPLAY}}->Width;	
+	my $dispheight = $self->{HEIGHT};
+	my $dispwidth = $self->{WIDTH};	
 	my @fp = ($dispwidth/2,$dispheight/2,1000); #should be centre of canvas
 	if (@$focuspoint == 3){
 		@fp = @$focuspoint;
@@ -175,7 +183,7 @@ sub rotateAroundPoint
 
 	my @c;
 	my @trans;
-	my $mw = $self->{MW};
+
 	if ($axis eq 'x'){
 		@c = ($$point[1],$$point[2]);
 		@trans = (0,-$$point[1],-$$point[2]);
@@ -194,7 +202,7 @@ sub rotateAroundPoint
 		$self->{SHAPES}[$obj]->rotate($axis,$rate,$c[0],$c[1]);
 		if (! $noupdate){
 			_drawObject($self,1,$obj);
-			$$mw->update;
+			_updateWindow($self);
 		}
 	}
 	
@@ -224,7 +232,6 @@ sub moveCamera
 	my $direction = shift;
 	my $amount = shift;
 	my $noupdate = shift;
-	my $mw = $self->{MW};
 	my $vector = _getCameraVector($self);
 	if ($direction eq 'vert' || $direction eq 'horiz'){
 		my @tempv;
@@ -289,7 +296,7 @@ sub moveCamera
 		_updateAll($self) ;
 		
 	}
-	_drawRollMarker($self);
+	_drawRollMarker($self); #needs to be an option
 	
 	
 }
@@ -401,7 +408,7 @@ sub _updateAll
 		}
 	}
 	}
-	${$self->{MW}}->update;
+	_updateWindow($self);
 }
 
 
@@ -422,7 +429,7 @@ sub removeObject
 	@{$self->{DRAWORDER}} = grep{$_!=$obj}@{$self->{DRAWORDER}};
 	push (@{$self->{FREEKEYS}}, $obj); #reuse empty array elements
 	}
-	${$self->{MW}}->update if (! $noupdate);
+	_updateWindow($self) if (! $noupdate);
 }
 
 sub translateVectoredObject
@@ -452,11 +459,11 @@ sub translate
 	my $y = shift;
 	my $z = shift;
 	my $noupdate = shift;
-	my $mw = $self->{MW};
+
 	$self->{SHAPES}[$obj]->translate($x, $y, $z);
 	if (! $noupdate){
 		_drawObject($self,1,$obj);
-		$$mw->update;
+		_updateWindow($self);
 	}
 }
 
@@ -480,13 +487,13 @@ sub _zoom
 	my $steps = int($maxz/$rate);
 	my $remainder=$maxz%$rate;
 	my $vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
-	my $mw = $self->{MW};
+
 	for (my $i = 0 ; $i < @{$vertexList}; $i++)
 	{
 		$$vertexList[$i][2] = $$vertexList[$i][2] + $maxz;
 	}
 	_drawObject($self,$mode,$obj);
-	$$mw->update();
+	_updateWindow($self);
 	for (my $j=1 ; $j <= $steps ; $j++){
 	for (my $i = 0 ; $i < @{$vertexList}; $i++)
 	{
@@ -496,7 +503,7 @@ sub _zoom
 		}
 	}
 	_drawObject($self,1,$obj);
-	$$mw->update();
+	_updateWindow($self);
 	}
 
 }
@@ -515,7 +522,7 @@ sub redraw
 	foreach (@$objs){
 		_drawObject($self,$mode,$_);
 	}
-	${$self->{MW}}->update;
+	_updateWindow($self);
 }
 
 
@@ -542,15 +549,20 @@ sub _drawObjectPixel
 	#removes and updates all objects (recalc of z buffer)
 	
 	#might test out a threaded function here - won't make much difference though as it's the actual drawing that takes all the time
+	#you would do this to speed up processing of multiple objects - likely to be slower for few objects - hopefully better for more
+	
 	#except that the threads module doesn't play nice with Tk elements (as each thread basically starts as a copy of the state of calling thread when created) 
-	#- so the interpreter will attempt to close windows when a thread is joined and the interpreter goes splat! One way around it is not to close the thread, but that's a shit idea really!
+	#- so the interpreter will attempt to close windows when a thread is joined and the interpreter goes splat! One way around it is not to close the thread, but that's a shit idea really! -will eat memory
 	#would need a thread pool before before any Tk elements are created, need some rejigging as the MainWindow and Canvas elements are passed into this module
-	#but a pool would steal some cpu cycles when not used - need some Java style threading
+	#but a pool would steal some cpu cycles when not used - need some Java style threading.
+	
+	#ok a solution - if we don't know about the window - assume client program dealing with it (see torustest3.pl) and can safely use threads
+	#otherwise use single thread setup
 	my $self = shift;
 	my $displaycanvas = $self->{DISPLAY};
 	my %zbuf :shared;
  # pixel draw - very slow (in Tk) - easily deals with overlapping objects - easy collision detection (though not checking that here)
-		$$displaycanvas->delete('all');
+		
 		#print "-----\n";
 		
 		my $threadcnt = 4;
@@ -562,8 +574,13 @@ sub _drawObjectPixel
 		
 		
 		for(my $j = 0 ; $j < @{$self->{DRAWORDER}} ; $j++){
-			#_drawObjectPixelWorker($self,$j,\%zbuf);
-			#test of threading executing 4 threads, threads are reused
+			if ($displaycanvas != 0){
+				#print "SINGLE THREAD\n";
+				_pixelDraw($self,\%zbuf,$j);
+				
+			}else{
+				#print "MULTI THREAD\n";
+			#test of threading executing 4 threads, threads are reused (locally)
 			while(1){
 				#find a free thread 
 				my $sent = 0;
@@ -581,9 +598,10 @@ sub _drawObjectPixel
 				if ($sent == 1){last;}
 				else {select (undef, undef, undef, 0.25);}
 			}
+			}
 			
 		}
-		while(1){
+		while(1 && $displaycanvas == 0){
 			#wait for threads to finish
 			my $done = 1;
 			for (my $id = 0 ; $id < $threadcnt ; $id++){
@@ -594,44 +612,56 @@ sub _drawObjectPixel
 				}
 				elsif ($tnotify[$id] == 2){
 					$tdata[$id] = -1;
-				#	$thread[$id]->join(); #see threads/Tk problem above
-				#	$tnotify[$id] = 0;
+					$tnotify[$id] = -1;
+					$thread[$id]->join(); #see threads/Tk problem above
+					
 				} 
 				
 			}
 			if ($done == 1){last;}
 			else {select (undef, undef, undef, 0.25);}
 		}
-		foreach my $key (keys %zbuf){
-			#print "$key\n";
-			my $tempx = $key;
-			my $tempy = $key;
-			if ($key=~m/^(\d+)_(\d+)c$/){
-				$tempy = $2;
-				$tempx = $1;
-				#draw pixels as defined by zbuffer
-				$$displaycanvas->createRectangle($tempx, $tempy,$tempx, $tempy, -fill=>$zbuf{$key},-outline=>$zbuf{$key});
-			}
+		$self->{ZBUF} = \%zbuf;
+		if ($displaycanvas == 0){
+
+			$self->{BUFREADY}=1;	
+		}else{
+			
+			outputZBuffer($self,$displaycanvas,\%zbuf);
 		}
+
 		
 }
 
 sub _drawObjectPixelWorker{
-	#separated this with a view to threading
+	
 	my $self = shift;
 	my $zbuf = shift;
 	my $tid = shift;
 	my $notify = shift;
 	my $tdata = shift;
-	my $fovflag = $self->{CAMERA_VIEW_ANGLE};
+	
 	
 	while ($$notify[$tid] > -1){
 			if ($$tdata[$tid] == -1){
 				select (undef, undef, undef, 0.5);
 				next;
 			}
-			if (! $self->{SHAPES}[$self->{DRAWORDER}[$$tdata[$tid]]] eq ""){
-				my $obj = 	$self->{DRAWORDER}[$$tdata[$tid]];
+			_pixelDraw($self,$zbuf,$$tdata[$tid]);
+			$$tdata[$tid] = -1;
+			$$notify[$tid] = 2;
+			
+	}
+}
+
+sub _pixelDraw{
+	#separated this with a view to threading
+	my $self = shift;
+	my $zbuf = shift;
+	my $id = shift;
+	my $fovflag = $self->{CAMERA_VIEW_ANGLE};
+	if (! $self->{SHAPES}[$self->{DRAWORDER}[$id]] eq ""){
+				my $obj = 	$self->{DRAWORDER}[$id];
 				#print "$obj\n";
 				my $vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
 				my $facetVertices = $self->{SHAPES}[$obj]->{FACETVERTICES};
@@ -655,10 +685,28 @@ sub _drawObjectPixelWorker{
 				}
 				}
 			}
-			$$tdata[$tid] = -1;
-			$$notify[$tid] = 2;
-			
-	}
+}
+
+sub outputZBuffer{
+	my $self = shift;
+	my $cnv = shift;
+	my $bufref = shift;
+
+	my %zbuffer = %$bufref;
+	$$cnv->delete('all');
+	$self->{BUFREADY}=0;
+			foreach my $key (keys %zbuffer){
+			#print "$key\n";
+			#print $zbuffer{$key}."\n";
+			if ($key=~m/^(\d+)_(\d+)c$/){
+				my $tempy = $2;
+				my $tempx = $1;
+				#draw pixels as defined by zbuffer
+				$$cnv->createRectangle($tempx, $tempy,$tempx, $tempy, -fill=>$zbuffer{$key},-outline=>$zbuffer{$key});
+			}
+		}
+	
+	
 }
 
 sub _drawObjectPoly
@@ -935,8 +983,8 @@ sub _buildZBuffer #called per facet
 			$miny = $$pt2[1];
 	    	}
 	    	
-	    	my $dispWidth = ${$self->{DISPLAY}}->Width;
-	    	my $dispHeight = ${$self->{DISPLAY}}->Height;
+	    	my $dispWidth = $self->{WIDTH};
+	    	my $dispHeight = $self->{HEIGHT};
 		$minx=0 if ($minx < 0);
 		$miny=0 if ($miny < 0);
 		$maxx=$dispWidth if ($maxx > $dispWidth);
@@ -1503,6 +1551,17 @@ sub _checkBackFace
  	my $obj = shift;
  	my $col = $self->{SHAPES}[$obj]->pointInsideObject($point);
  	return $col;
+ }
+ 
+ 
+ sub _updateWindow{
+ 	my $self = shift;
+ 	
+ 		
+ 	if ($self->{MW}  != 0 && defined($self->{MW})){
+ 		${$self->{MW}}->update;
+ 	}
+ 	# else client program is reponsible for updating
  }
 
 
