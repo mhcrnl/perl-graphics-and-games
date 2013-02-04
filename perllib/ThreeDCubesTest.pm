@@ -549,7 +549,8 @@ sub _drawObjectPixel
 	#removes and updates all objects (recalc of z buffer)
 	
 	#might test out a threaded function here - won't make much difference though as it's the actual drawing that takes all the time
-	#you would do this to speed up processing of multiple objects - likely to be slower for few objects - hopefully better for more
+	#you would do this to speed up processing of multiple objects - likely to be slower for few objects (tested as indeed slower)- hopefully better for more
+	#not even sure this will help at all under windows, as fork is a pseudo-fork i.e. it doesn't create a separate process like it does on Unix/Linux
 	
 	#except that the threads module doesn't play nice with Tk elements (as each thread basically starts as a copy of the state of calling thread when created) 
 	#- so the interpreter will attempt to close windows when a thread is joined and the interpreter goes splat! One way around it is not to close the thread, but that's a shit idea really! -will eat memory
@@ -580,12 +581,15 @@ sub _drawObjectPixel
 				
 			}else{
 				#print "MULTI THREAD\n";
-			#test of threading executing 4 threads, threads are reused (locally)
+			#test of threading executing 4 threads
 			while(1){
-				#find a free thread 
+				#find a free thread slot
 				my $sent = 0;
 				for (my $id = 0 ; $id < $threadcnt ; $id++){
 					if ($tnotify[$id] != 1){
+						if ($tnotify[$id] == 2){ 
+							$thread[$id]->join(); #playing with creating a new thread for each object, may be some performance advantage in not having a worker looping waiting for another
+						}
 						$tnotify[$id] = 1;
 						$tdata[$id] = $j;
 						if ($thread[$id] == 0){
@@ -596,7 +600,7 @@ sub _drawObjectPixel
 					}
 				}
 				if ($sent == 1){last;}
-				else {select (undef, undef, undef, 0.25);}
+				else {select (undef, undef, undef, 0.1);}
 			}
 			}
 			
@@ -611,7 +615,7 @@ sub _drawObjectPixel
 					$done = 0;
 				}
 				elsif ($tnotify[$id] == 2){
-					$tdata[$id] = -1;
+					#$tdata[$id] = -1;
 					$tnotify[$id] = -1;
 					$thread[$id]->join(); #see threads/Tk problem above
 					
@@ -619,7 +623,7 @@ sub _drawObjectPixel
 				
 			}
 			if ($done == 1){last;}
-			else {select (undef, undef, undef, 0.25);}
+			else {select (undef, undef, undef, 0.1);}
 		}
 		$self->{ZBUF} = \%zbuf;
 		if ($displaycanvas == 0){
@@ -642,16 +646,16 @@ sub _drawObjectPixelWorker{
 	my $tdata = shift;
 	
 	
-	while ($$notify[$tid] > -1){
-			if ($$tdata[$tid] == -1){
-				select (undef, undef, undef, 0.5);
-				next;
-			}
+	#while ($$notify[$tid] > -1){
+	#		if ($$tdata[$tid] == -1){
+	#			select (undef, undef, undef, 0.1);
+	#			next;
+	#		}
 			_pixelDraw($self,$zbuf,$$tdata[$tid]);
 			$$tdata[$tid] = -1;
 			$$notify[$tid] = 2;
 			
-	}
+	#}
 }
 
 sub _pixelDraw{
