@@ -890,7 +890,7 @@ sub _getTriangleCentre
 	my $maxz = $pt[0][2];
 	my $minz = $pt[0][2];
 	
-	foreach (0..2){
+	foreach (1..2){
 		if ($pt[$_][0] > $maxx){
 			$maxx = $pt[$_][0];
 		}elsif ($pt[$_][0] < $minx){
@@ -930,62 +930,42 @@ sub _buildZBuffer #called per facet
 	my $fovflag=shift;
 	my $idno=shift;
 	
-	
-	my $pt = \@{$$camVertList[$$facetVertices[$facetNo][0]]}; #from screen coords
-	my $pt1 = \@{$$camVertList[$$facetVertices[$facetNo][1]]};
-	my $pt2 = \@{$$camVertList[$$facetVertices[$facetNo][2]]};
-	my $mpt = \@{$$vertexList[$$facetVertices[$facetNo][0]]}, #from object coords
-	my $mpt1 = \@{$$vertexList[$$facetVertices[$facetNo][1]]},
-	my $mpt2 = \@{$$vertexList[$$facetVertices[$facetNo][2]]},
+	my @pt;
+	my @mpt;
+
+	for (0..2){
+		$pt[$_] = \@{$$camVertList[$$facetVertices[$facetNo][$_]]}; #from screen coords
+		$mpt[$_] = \@{$$vertexList[$$facetVertices[$facetNo][$_]]}; #from object coords
+	}
 
 		
-	my @normal = _getNormal($pt,$pt1,$pt2);
+	my @normal = _getNormal($pt[0],$pt[1],$pt[2]);
 	
 	
 	my @line; #equation of each line forming the triangle
-	$line[0] = LineEq->new($$pt[0],$$pt[1],$$pt1[0],$$pt1[1]);
-	$line[1] = LineEq->new($$pt1[0],$$pt1[1],$$pt2[0],$$pt2[1]);
-    	$line[2] = LineEq->new($$pt2[0],$$pt2[1],$$pt[0],$$pt[1]);
+	$line[0] = LineEq->new($pt[0][0],$pt[0][1],$pt[1][0],$pt[1][1]);
+	$line[1] = LineEq->new($pt[1][0],$pt[1][1],$pt[2][0],$pt[2][1]);
+    $line[2] = LineEq->new($pt[2][0],$pt[2][1],$pt[0][0],$pt[0][1]);
     	
-    	my $minx=$$pt[0];
-	my $maxy=$$pt[1];
-	my $maxx=$$pt[0];
-    	my $miny=$$pt[1];
+    #get extent of triangle
+    my $minx=$pt[0][0];
+	my $maxy=$pt[0][1];
+	my $maxx=$pt[0][0];
+   	my $miny=$pt[0][1];
     	
- 	#get extent of triangle
- 	#tidy this up later
-	    	if ($$pt[0] > $maxx){
-	    		$maxx = $$pt[0];
-	    	}elsif ($$pt[0] < $minx){
-	    		$minx = $$pt[0];
+ 	for (1..2){
+ 		if ($pt[$_][0] > $maxx){
+	    		$maxx = $pt[$_][0];
+	    	}elsif ($pt[$_][0] < $minx){
+	    		$minx = $pt[$_][0];
 	    	}
-	    	if ($$pt[1] > $maxy){
-			$maxy = $$pt[1];
-		}elsif ($$pt[1] < $miny){
-			$miny = $$pt[1];
+	    	if ($pt[$_][1] > $maxy){
+				$maxy = $pt[$_][1];
+			}elsif ($pt[$_][1] < $miny){
+				$miny = $pt[$_][1];
 	    	}
-	    	
-	    	if ($$pt1[0] > $maxx){
-	    		$maxx = $$pt1[0];
-	    	}elsif ($$pt1[0] < $minx){
-	    		$minx = $$pt1[0];
-	    	}
-	    	if ($$pt1[1] > $maxy){
-			$maxy = $$pt1[1];
-		}elsif ($$pt1[1] < $miny){
-			$miny = $$pt1[1];
-	    	}
-	    	
-	    	if ($$pt2[0] > $maxx){
-	    		$maxx = $$pt2[0];
-	    	}elsif ($$pt2[0] < $minx){
-	    		$minx = $$pt2[0];
-	    	}
-	    	if ($$pt2[1] > $maxy){
-			$maxy = $$pt2[1];
-		}elsif ($$pt2[1] < $miny){
-			$miny = $$pt2[1];
-	    	}
+ 	}
+ 	
 	    	
 	    	my $dispWidth = $self->{WIDTH};
 	    	my $dispHeight = $self->{HEIGHT};
@@ -1000,18 +980,17 @@ sub _buildZBuffer #called per facet
     	 my @colourdec;
     	 my @percentColour;
     	  my @vert;
-	  $vert[0] = [$$mpt[0],$$mpt[1],$$mpt[2]];
-	  $vert[1] = [$$mpt1[0],$$mpt1[1],$$mpt1[2]];
-    	 $vert[2] = [$$mpt2[0],$$mpt2[1],$$mpt2[2]];
+    	  for (0..2){
+    	  	$vert[$_] = [$mpt[$_][0],$mpt[$_][1],$mpt[$_][2]];
+    	  }
+
     	 
     	 if ($self->{SHAPES}[$obj]->{GORAUD} == 1){ #some objects may define method for finding vertex normals as certain shapes can find the shared normal more easily, e.g. Spheres
-    	 	my @vertNormal;
-    	 	$vertNormal[0] = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][0]);
-    	 	$vertNormal[1] = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][1]);
-    	 	 $vertNormal[2] = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][2]);
 
-		foreach (0..2){
-    	 		($colourdec[$_],$percentColour[$_]) = _getColourIntensity($self,$obj,$vertNormal[$_],$vert[$_]);
+
+		for (0..2){
+				my $vertNormal = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][$_]);
+    	 		($colourdec[$_],$percentColour[$_]) = _getColourIntensity($self,$obj,$vertNormal,$vert[$_]);
     	 	}
     	 	
     	 	
@@ -1029,8 +1008,8 @@ sub _buildZBuffer #called per facet
 				my $bf = _checkBackFace($self,\@{$$camVertList[$$facetVertices[$i][0]]},\@{$$camVertList[$$facetVertices[$i][1]]},\@{$$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
 				#if ($bf < 0.25){ #takes into account some rearward facing facets, but not those getting near to facing directly away
 				#this should produce more realistic shading
-				#however this may fall foul of a problem at some angles (like the whale fins) where two facets face away from each other producing a perpendicular normal so the shaing will be well off what it should be
-				#so may be better just to use the forward facing facets or
+				#however this may fall foul of a problem at some angles (like the whale fins) where two facets face away from each other producing a perpendicular normal so the shading will be well off what it should be
+				#so may be better just to use the forward facing facets 
 				#push(@facets,$i);}
 				
 				push(@facets,$i) if ($bf < 0);
@@ -1060,7 +1039,7 @@ sub _buildZBuffer #called per facet
     	 
     	 }else{ # otherwise just use face normal and light vectors to vertices
     	 	foreach (0..2){ #this shading model is perfect for some shapes e.g. Cubes or simple highly angular shapes
-    	 		($colourdec[$_],$percentColour[$_]) = _getShade($self,$mpt,$mpt1,$mpt2,$obj,$vert[$_],$basecolour,1);
+    	 		($colourdec[$_],$percentColour[$_]) = _getShade($self,$mpt[0],$mpt[1],$mpt[2],$obj,$vert[$_],$basecolour,1);
     	 		
     	 	}
     	 }
@@ -1121,10 +1100,10 @@ sub _buildZBuffer #called per facet
 		if ($y >=$miny && $y <=$maxy){
 			#get z value for pixel
 			my $z = -1;
-			if (sqrt(($x-$$pt[0])*($x-$$pt[0])) < 1 &&  sqrt(($y-$$pt[1])*($y-$$pt[1])) < 1){
-				$z = -((-($normal[0]*($$pt1[0]-$x) + $normal[1]*($$pt1[1]-$y))/$normal[2]) - $$pt1[2]);
+			if (sqrt(($x-$pt[0][0])*($x-$pt[0][0])) < 1 &&  sqrt(($y-$pt[0][1])*($y-$pt[0][1])) < 1){
+				$z = -((-($normal[0]*($pt[1][0]-$x) + $normal[1]*($pt[1][1]-$y))/$normal[2]) - $pt[1][2]);
 			}else{
-				$z = -((-($normal[0]*($$pt[0]-$x) + $normal[1]*($$pt[1]-$y))/$normal[2]) - $$pt[2]);
+				$z = -((-($normal[0]*($pt[0][0]-$x) + $normal[1]*($pt[0][1]-$y))/$normal[2]) - $pt[0][2]);
 			}
 		
 			#check if hidden by something
@@ -1522,7 +1501,7 @@ sub _checkBackFace
   	 elsif ($shade eq 'cyan'){
 			$colour = "#22".$colourhex.$colourhex;
   	}elsif ($shade =~ m/^\#(.{2})(.{2})(.{2})$/){
-  		$percent = 0.1 if ($percent < 0.1);
+  		$percent = 0.15 if ($percent < 0.15);
   		my $r = int(hex($1)*$percent);
   		my $g = int(hex($2)*$percent);
   		my $b = int(hex($3)*$percent);
