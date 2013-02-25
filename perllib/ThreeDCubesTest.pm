@@ -1046,7 +1046,7 @@ sub _buildZBuffer #called per facet
     	 
 
     	 #update the zbuffer - no drawing is done here
-    	 
+
     	 #scanline for each x of extent of triangle
     	 foreach my $x (int($minx+0.5)..int($maxx+0.5)){
     	 	my @activeLines =();
@@ -1148,9 +1148,20 @@ sub _buildZBuffer #called per facet
 			my $y = $yToProcess[$i][0];
 			my $z = $yToProcess[$i][1];
 			#interpolate colour for each pixel on scanline
-			my $percentDistCovered = ($y-int($yVals[0]+0.5)) / $lineLen;
-			my $colourIntAtThisPoint = $pointInt[0]+($difColour*$percentDistCovered);
-			$colourIntAtThisPoint = 1 if ($colourIntAtThisPoint > 1);
+
+			my $colourIntAtThisPoint = 0;
+			if ($self->{DOSHADOW} == 1){
+				if (_inShadow($self,[$x,$y,$z])){
+					$colourIntAtThisPoint = 0.1;
+				}
+			}
+
+			
+			if ($colourIntAtThisPoint == 0){
+				my $percentDistCovered = ($y-int($yVals[0]+0.5)) / $lineLen;
+				$colourIntAtThisPoint = $pointInt[0]+($difColour*$percentDistCovered);
+				$colourIntAtThisPoint = 1 if ($colourIntAtThisPoint > 1);
+			}
 			my $colour = _getColourString($colourIntAtThisPoint*255,$basecolour,$colourIntAtThisPoint,$self,$obj);
 			#write pixel details to zbuffer 
 			
@@ -1501,7 +1512,7 @@ sub _checkBackFace
   	 elsif ($shade eq 'cyan'){
 			$colour = "#22".$colourhex.$colourhex;
   	}elsif ($shade =~ m/^\#(.{2})(.{2})(.{2})$/){
-  		$percent = 0.15 if ($percent < 0.15);
+  		$percent = 0.16 if ($percent < 0.16);
   		my $r = int(hex($1)*$percent);
   		my $g = int(hex($2)*$percent);
   		my $b = int(hex($3)*$percent);
@@ -1534,6 +1545,39 @@ sub _checkBackFace
  	my $obj = shift;
  	my $col = $self->{SHAPES}[$obj]->pointInsideObject($point);
  	return $col;
+ }
+ 
+ sub _inShadow{
+ 	my $self = shift;
+ 	my @ls = @{$self->{LIGHTSOURCE}};
+ 	my @shapes = @{$self->{SHAPES}};
+ 	my $point = shift;
+ 	
+
+	my @vector = ($ls[0] - $$point[0], $ls[1] - $$point[1], $ls[2] - $$point[2]);
+	_normalise(\@vector);
+	for (my $i = 1 ; $i < distanceBetween(\@ls, $point) ; $i+=2){ #not checking every unit will speed it up a bit, but may have fuzzier shadows
+		#basic ray trace, checks all points along vector till we hit something - will not have good performance - no doubt a better algorithm out there
+		#yep it's hideously slow
+		
+		#other things to do - disregard if moving away, and more than the max extent away
+		#increase $i more where there is a large gap to the nearest object
+		my @checkPoint = ($$point[0]+($vector[0]*$i),$$point[1]+($vector[1]*$i),$$point[2]+($vector[2]*$i));
+		foreach my $s (@shapes){
+			my ($minX,$maxX) = $s->minMaxN('x');
+			next if ($checkPoint[0] < $minX || $checkPoint[0] > $maxX);
+			my ($minY,$maxY) = $s->minMaxN('y');
+			next if ($checkPoint[1] < $minY || $checkPoint[1] > $maxY);
+			my ($minZ,$maxZ) = $s->minMaxN('z');
+			next if ($checkPoint[2] < $minZ || $checkPoint[2] > $maxZ);
+			if ($s->pointInsideObject(\@checkPoint)){
+				return 1;	
+			}
+		}
+		
+	}
+	return 0;
+
  }
  
  

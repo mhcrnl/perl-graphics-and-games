@@ -75,7 +75,7 @@ sub new
 	   
 	   	$self->{VERTEXLIST}=\@vertexList;
 	   	$self->{FACETVERTICES}=\@facetVertices;
-
+		$self->{EXTENT}=_calcMaxExtent(100,100,100);
 		bless $self;
 	   	return $self;
 
@@ -106,7 +106,27 @@ sub setDimensions
 			${$self->{VERTEXLIST}}[$i][2] = $depth if (${$self->{VERTEXLIST}}[$i][2] > 0);
 		}
 	}
+
+	$self->{EXTENT}=_calcMaxExtent($width,$height,$depth);
+
 }
+
+sub getMaxExtent{
+	my $self=shift;
+	return $self->{EXTENT};
+}
+
+sub _calcMaxExtent{
+	#max distance centre to surface
+	my $width = shift;
+	my $height = shift;
+	my $depth = shift;
+	
+	my $temphyp = sqrt((($width/2)*($width/2))+(($height/2)*($height/2)));
+	return sqrt(($temphyp*$temphyp)+(($depth/2)*($depth/2)));
+	
+}
+
 
 sub pointInsideObject
 {
@@ -120,6 +140,8 @@ sub pointInsideObject
 	my @c;
 	my @normal;
 	my $return = 1;
+	my $centre = $self->getCentre();
+	return 0 if (distanceBetween($centre,$point) > $self->getMaxExtent()); #must be within this distance of centre to be within it
 	for (my $i = 0 ; $i < @{$self->{FACETVERTICES}} ; $i++) #each face has 2 triangles, only need to check one
 	{
 		if (${$self->{FACETVERTICES}}[$i][3] % 2 == 0){ #array may be sorted by z distance. If we get all the even number ids, it ensures we get one triangle from each face

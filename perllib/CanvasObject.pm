@@ -138,58 +138,56 @@ sub getCentre
 {
 	my $self = shift;
 	my @centre;
-    my $maxX = ${$self->{VERTEXLIST}}[0][0];
-    my $maxY = ${$self->{VERTEXLIST}}[0][1];
-    my $maxZ = ${$self->{VERTEXLIST}}[0][2];
-    my $minX = $maxX;
-    my $minY = $maxY;
-    my $minZ = $maxZ;
-    for (my $i = 1 ; $i < @{$self->{VERTEXLIST}} ; $i++)
-    {
-      if (${$self->{VERTEXLIST}}[$i][0] > $maxX)
-      {
-        $maxX = ${$self->{VERTEXLIST}}[$i][0];
-      }
-      if (${$self->{VERTEXLIST}}[$i][1] > $maxY)
-      {
-        $maxY = ${$self->{VERTEXLIST}}[$i][1];
-      }
-       if (${$self->{VERTEXLIST}}[$i][2] > $maxZ)
-      {
-        $maxZ = ${$self->{VERTEXLIST}}[$i][2];
-      }
-      if (${$self->{VERTEXLIST}}[$i][0] < $minX)
-      {
-        $minX = ${$self->{VERTEXLIST}}[$i][0];
-      }
-      if (${$self->{VERTEXLIST}}[$i][1] < $minY)
-      {
-        $minY = ${$self->{VERTEXLIST}}[$i][1];
-      }
-      if (${$self->{VERTEXLIST}}[$i][2] < $minZ)
-      {
-        $minZ = ${$self->{VERTEXLIST}}[$i][2];
-      }
-    }
+	
+	my ($minX,$maxX) = minMaxN($self,'x');
+	my ($minY,$maxY) = minMaxN($self,'y');
+	my ($minZ,$maxZ) = minMaxN($self,'z');
+	
     $centre[0] = $minX + (($maxX - $minX)/2);
     $centre[1] = $minY + (($maxY - $minY)/2);
     $centre[2] = $minZ + (($maxZ - $minZ)/2);
     return \@centre;
 }
 
-sub minZ
-{
+
+sub minMaxN{
 	my $self = shift;
-    my $minZ = ${$self->{VERTEXLIST}}[0][2];
-    for (my $i = 1 ; $i < @{$self->{VERTEXLIST}} ; $i++)
-    {
-      if (${$self->{VERTEXLIST}}[$i][2] < $minZ)
-      {
-        $minZ = ${$self->{VERTEXLIST}}[$i][2];
-      }
-    }
-    return $minZ;
+	my $axis = shift;
+	my $n = 0;
+	$n=1 if ($axis eq 'y');
+	$n=2 if ($axis eq 'z');
+	my $min = ${$self->{VERTEXLIST}}[0][$n];
+	my $max = $min;
+	for (my $i = 1 ; $i < @{$self->{VERTEXLIST}} ; $i++)
+	    {
+	      if (${$self->{VERTEXLIST}}[$i][$n] < $min)
+	      {
+	        $min = ${$self->{VERTEXLIST}}[$i][$n];
+	      }
+	      elsif (${$self->{VERTEXLIST}}[$i][$n] > $max)
+	      {
+	        $max = ${$self->{VERTEXLIST}}[$i][$n];
+	      }
+    	}
+    	return ($min,$max);
 }
+
+
+
+
+#sub minZ
+#{
+#	my $self = shift;
+#    my $minZ = ${$self->{VERTEXLIST}}[0][2];
+#    for (my $i = 1 ; $i < @{$self->{VERTEXLIST}} ; $i++)
+#    {
+#      if (${$self->{VERTEXLIST}}[$i][2] < $minZ)
+#      {
+#        $minZ = ${$self->{VERTEXLIST}}[$i][2];
+#      }
+#    }
+#    return $minZ;
+#}
 
 
 sub _matrixMultiply
@@ -305,6 +303,11 @@ sub _sort_func
 	my $aavgz = (${$self->{VERTEXLIST}}[$$aref[0]][2]+${$self->{VERTEXLIST}}[$$aref[1]][2]+${$self->{VERTEXLIST}}[$$aref[2]][2])/3;
 	my $bavgz = (${$self->{VERTEXLIST}}[$$bref[0]][2]+${$self->{VERTEXLIST}}[$$bref[1]][2]+${$self->{VERTEXLIST}}[$$bref[2]][2])/3;
 	return ($bavgz <=> $aavgz);
+}
+
+sub getMaxExtent{
+	#will need generic for when shapes don't implment one
+	return -1;
 }
 
 

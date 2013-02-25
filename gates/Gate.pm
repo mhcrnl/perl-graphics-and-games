@@ -64,7 +64,7 @@ sub pointInsideObject
 	my $point = shift;
 	#get front of gate plane and normal through gate
 	#get back plane and normal back through gate
-	#if passing though vector camera to plane head towards each other in both cases
+	
 	
 	my @backplane = _getNormal(\@{$self->{VERTEXLIST}[28]}, \@{$self->{VERTEXLIST}[4]}, \@{$self->{VERTEXLIST}[44]});
 	#anti-clockwise - normal goes through gate
@@ -72,6 +72,7 @@ sub pointInsideObject
 	my @foreplane = _getNormal(\@{$self->{VERTEXLIST}[40]}, \@{$self->{VERTEXLIST}[0]}, \@{$self->{VERTEXLIST}[24]});
 	#use clockwise direction - will give normal pointing from front of gate to back - allows correct movement needed later
 
+	#get vector from a point on the plane to the tested point
 	my @vector1 = ($self->{VERTEXLIST}[0][0] - $$point[0],
 			$self->{VERTEXLIST}[0][1] - $$point[1],
 			$self->{VERTEXLIST}[0][2] - $$point[2]);
@@ -83,6 +84,7 @@ sub pointInsideObject
 	_normalise(\@vector2);
 	my $answer1 = ($foreplane[0]*$vector1[0])+($foreplane[1]*$vector1[1])+($foreplane[2]*$vector1[2]);
 	my $answer2 = ($backplane[0]*$vector2[0])+($backplane[1]*$vector2[1])+($backplane[2]*$vector2[2]);
+	#if the point to point vector and the plane normal head towards each other, then we are inside the gate (if within the radius)
 	if ($answer1 < 0 && $answer2 < 0){
 		my $centre = $self->getCentre();
 		my $dist = distanceBetween($point, $centre);

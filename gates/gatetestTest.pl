@@ -269,6 +269,7 @@ sub _move
 			my ($dist_travelled, $dist_camera) = $tdc->translateVectoredObject($b,15,1);
 			if ($dist_travelled < 700){
 				#may want to work out distance of bullet to target first, may cut down on processing (not done atm)
+				#is only checking the first target in the list
 				my $col = 0;
 				$col = $tdc->collisionCheck_object($b,$targets[0]{'id'}) if (@targets > 0 && $targets[0]{'id'} > -1);
 				if ($col == 1){

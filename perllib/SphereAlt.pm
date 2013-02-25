@@ -113,4 +113,16 @@ sub vertexNormal
 	return \@vertNormal;
 
 }
+
+sub pointInsideObject
+{
+	#quite easy just have to be within the radius
+	my $self = shift;
+	my $point = shift;
+	my $centre = $self->getCentre();
+	return 1 if (distanceBetween($point,$centre) <= $self->{RADIUS});
+	
+	return 0;
+}
+
 return 1;
