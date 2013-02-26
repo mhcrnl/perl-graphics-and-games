@@ -97,13 +97,24 @@ sub vertexNormal
 
 }
 
+
+sub getMaxExtent{
+	my $self=shift;
+	return $self->{RADIUS}-1; #take a bit of as its not a perfect sphere
+}
+
+sub getMinExtent{
+	my $self=shift;
+	return $self->{RADIUS}-1;
+}
+
 sub pointInsideObject
 {
 	#quite easy just have to be within the radius of the centre
 	my $self = shift;
 	my $point = shift;
 	my $centre = $self->getCentre();
-	return 1 if (distanceBetween($point,$centre) <= $self->{RADIUS});
+	return 1 if (distanceBetween($point,$centre) < $self->{RADIUS});
 	
 	return 0;
 }

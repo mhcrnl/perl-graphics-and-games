@@ -75,7 +75,8 @@ sub new
 	   
 	   	$self->{VERTEXLIST}=\@vertexList;
 	   	$self->{FACETVERTICES}=\@facetVertices;
-		$self->{EXTENT}=_calcMaxExtent(100,100,100);
+		$self->{MAX_EXTENT}=_calcMaxExtent(100,100,100);
+		$self->{MIN_EXTENT}=50;
 		bless $self;
 	   	return $self;
 
@@ -83,38 +84,41 @@ sub new
 
 sub setDimensions
 {
+	#this needs to change really this can only set the dimension in the starting position
+	
 	my $self = shift;
 	my $width = shift;
 	my $height = shift;
 	my $depth = shift;
-
-	if ($width > 0){
+	if ($width > 0 && $height > 0 && $depth > 0){
+		$self->{MIN_EXTENT} = $width/2;
+		$self->{MIN_EXTENT} = $height if ($height/2 > $self->{MIN_EXTENT});
+		$self->{MIN_EXTENT} = $depth if ($depth/2 > $self->{MIN_EXTENT});
 		for (my $i = 0 ; $i < @{$self->{VERTEXLIST}}; $i++)
 		{
 			${$self->{VERTEXLIST}}[$i][0] = $width if (${$self->{VERTEXLIST}}[$i][0] > 0);
-		}
-	}
-	if ($height > 0){
-		for (my $i = 0 ; $i < @{$self->{VERTEXLIST}} ; $i++)
-		{
 			${$self->{VERTEXLIST}}[$i][1] = $height if (${$self->{VERTEXLIST}}[$i][1] > 0);
-		}
-	}
-	if ($depth > 0){
-		for (my $i = 0 ; $i < @{$self->{VERTEXLIST}} ; $i++)
-		{
 			${$self->{VERTEXLIST}}[$i][2] = $depth if (${$self->{VERTEXLIST}}[$i][2] > 0);
+
 		}
+
+
 	}
 
-	$self->{EXTENT}=_calcMaxExtent($width,$height,$depth);
+	$self->{MAX_EXTENT}=_calcMaxExtent($width,$height,$depth);
 
 }
 
 sub getMaxExtent{
 	my $self=shift;
-	return $self->{EXTENT};
+	return $self->{MAX_EXTENT};
 }
+
+sub getMinExtent{
+	my $self=shift;
+	return $self->{MIN_EXTENT};
+}
+
 
 sub _calcMaxExtent{
 	#max distance centre to surface
@@ -141,7 +145,9 @@ sub pointInsideObject
 	my @normal;
 	my $return = 1;
 	my $centre = $self->getCentre();
-	return 0 if (distanceBetween($centre,$point) > $self->getMaxExtent()); #must be within this distance of centre to be within it
+	my $dist =  distanceBetween($centre,$point);
+	return 0 if ($dist > $self->getMaxExtent()); #must be within this distance of centre to be within it
+	return 1 if ($dist <= $self->getMinExtent()); #has to be in object at this distance 
 	for (my $i = 0 ; $i < @{$self->{FACETVERTICES}} ; $i++) #each face has 2 triangles, only need to check one
 	{
 		if (${$self->{FACETVERTICES}}[$i][3] % 2 == 0){ #array may be sorted by z distance. If we get all the even number ids, it ensures we get one triangle from each face

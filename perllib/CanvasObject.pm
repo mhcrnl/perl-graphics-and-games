@@ -18,6 +18,8 @@ sub new
     	$self->{NOFILL}=0;
     	$self->{OUTL} = '';
     	$self->{GORAUD} = 0;
+    	$self->{MIN_EXTENT}=0;
+    	$self->{MAX_EXTENT}=0;
     	bless($self,$class);
     	return $self;
 }

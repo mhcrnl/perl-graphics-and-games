@@ -54,6 +54,8 @@ sub new{
     	$self->{MW}=$mw;
     	$self->{ZBUF} = 0;
     	$self->{BUFREADY}=0;
+		$self->{BASE_INTENSITY}=0.1;
+		$self->{FOCUS} = [int($$displaycanvas->Width/2),int($$displaycanvas->Height/2),1000]; #default focus - to make setable
 	bless $self;
 	return $self;
 
@@ -105,7 +107,8 @@ sub registerObject
 	}
 	my $dispheight = $self->{HEIGHT};
 	my $dispwidth = $self->{WIDTH};	
-	my @fp = ($dispwidth/2,$dispheight/2,1000); #should be centre of canvas
+	#my @fp = ($dispwidth/2,$dispheight/2,1000); #should be centre of canvas
+	my @fp = @{$self->{FOCUS}};
 	if (@$focuspoint == 3){
 		@fp = @$focuspoint;
 	}
@@ -706,7 +709,7 @@ sub outputZBuffer{
 				my $tempy = $2;
 				my $tempx = $1;
 				#draw pixels as defined by zbuffer
-				$$cnv->createRectangle($tempx, $tempy,$tempx, $tempy, -fill=>$zbuffer{$key},-outline=>$zbuffer{$key});
+				$$cnv->createLine($tempx, $tempy,$tempx+1, $tempy, -fill=>$zbuffer{$key});
 			}
 		}
 	
@@ -1028,9 +1031,9 @@ sub _buildZBuffer #called per facet
 				$vertNormal[$_] += $normal[$_];
 			}
 		}
-		foreach(0..2){
-			$vertNormal[$_] = ($vertNormal[$_] / scalar(@facets));
-		}
+		
+		map{$_=$_/scalar(@facets)}@vertNormal;
+
 
 		_normalise(\@vertNormal); 
 		($colourdec[$v],$percentColour[$v]) = _getColourIntensity($self,$obj,\@vertNormal,$vert[$v]);    	 
@@ -1149,19 +1152,19 @@ sub _buildZBuffer #called per facet
 			my $z = $yToProcess[$i][1];
 			#interpolate colour for each pixel on scanline
 
-			my $colourIntAtThisPoint = 0;
-			if ($self->{DOSHADOW} == 1){
-				if (_inShadow($self,[$x,$y,$z])){
-					$colourIntAtThisPoint = 0.1;
+
+			my $percentDistCovered = ($y-int($yVals[0]+0.5)) / $lineLen;
+			my $colourIntAtThisPoint = $pointInt[0]+($difColour*$percentDistCovered);
+			$colourIntAtThisPoint = 1 if ($colourIntAtThisPoint > 1);
+			
+			if ($self->{DOSHADOW} == 1 && $colourIntAtThisPoint > $self->{BASE_INTENSITY}){ #no point checking shadow if we are already out of the light
+				if (_inShadow($self,[$x,$y,$z])){ #we're passing a camera coord here it needs to be a world coord!
+					$colourIntAtThisPoint = $self->{BASE_INTENSITY};
 				}
 			}
 
 			
-			if ($colourIntAtThisPoint == 0){
-				my $percentDistCovered = ($y-int($yVals[0]+0.5)) / $lineLen;
-				$colourIntAtThisPoint = $pointInt[0]+($difColour*$percentDistCovered);
-				$colourIntAtThisPoint = 1 if ($colourIntAtThisPoint > 1);
-			}
+	
 			my $colour = _getColourString($colourIntAtThisPoint*255,$basecolour,$colourIntAtThisPoint,$self,$obj);
 			#write pixel details to zbuffer 
 			
@@ -1212,6 +1215,23 @@ sub _getPerspective
 	}
 	
 	return \@camVertList;
+}
+
+sub _reversePerspective{
+	#working out a world coord from screen coord in perspective mode (need for shadows) 
+	#only use of all objects use the same focus
+
+	my $self = shift;
+	my $point = shift;
+	my @focuspoint = @{$self->{FOCUS}};
+	#print "$focuspoint[0] : $focuspoint[1] : $focuspoint[2]\n";
+	my $percent = 1-($$point[2]/$focuspoint[2]);
+	
+	my $x = $focuspoint[0] + (($$point[0]-$focuspoint[0])/$percent);
+	my $y = $focuspoint[1] + (($$point[1]-$focuspoint[1])/$percent);
+	
+	my @ret = ($x,$y,$$point[2]);
+	return \@ret;
 }
 
 
@@ -1512,7 +1532,7 @@ sub _checkBackFace
   	 elsif ($shade eq 'cyan'){
 			$colour = "#22".$colourhex.$colourhex;
   	}elsif ($shade =~ m/^\#(.{2})(.{2})(.{2})$/){
-  		$percent = 0.16 if ($percent < 0.16);
+  		$percent = $self->{BASE_INTENSITY} if ($percent < $self->{BASE_INTENSITY});
   		my $r = int(hex($1)*$percent);
   		my $g = int(hex($2)*$percent);
   		my $b = int(hex($3)*$percent);
@@ -1548,32 +1568,70 @@ sub _checkBackFace
  }
  
  sub _inShadow{
+ 	
+ 	#aw! f'in 'ell - just realised - checking the extent on world coords, when using a camera coord starting point - showed up by a sphere casting shadow on itself!
+ 	
  	my $self = shift;
+ 	my $pt = shift;
+	
+ 	return 0 if (($$pt[0] % 2 == 0 && $$pt[1] % 2 != 0) || ($$pt[0] % 2 != 0 && $$pt[1] % 2 == 0)); #should reduce processing a bit
+	my $point = $self->_reversePerspective($pt); #ok, works out a world coord, assumes perspective mode, will need to sort something out for fov
+	
+
  	my @ls = @{$self->{LIGHTSOURCE}};
  	my @shapes = @{$self->{SHAPES}};
- 	my $point = shift;
+ 	my @prevDist = (-1) x scalar @shapes;	
+ 	my $remCnt = 0;
  	
-
 	my @vector = ($ls[0] - $$point[0], $ls[1] - $$point[1], $ls[2] - $$point[2]);
 	_normalise(\@vector);
-	for (my $i = 1 ; $i < distanceBetween(\@ls, $point) ; $i+=2){ #not checking every unit will speed it up a bit, but may have fuzzier shadows
+
+	for (my $i = 2 ; $i < distanceBetween(\@ls, $point) ; ){ 
 		#basic ray trace, checks all points along vector till we hit something - will not have good performance - no doubt a better algorithm out there
 		#yep it's hideously slow
 		
 		#other things to do - disregard if moving away, and more than the max extent away
 		#increase $i more where there is a large gap to the nearest object
+		
+		#annoyingly this hasn't come out particularly faster! :(
 		my @checkPoint = ($$point[0]+($vector[0]*$i),$$point[1]+($vector[1]*$i),$$point[2]+($vector[2]*$i));
-		foreach my $s (@shapes){
-			my ($minX,$maxX) = $s->minMaxN('x');
-			next if ($checkPoint[0] < $minX || $checkPoint[0] > $maxX);
-			my ($minY,$maxY) = $s->minMaxN('y');
-			next if ($checkPoint[1] < $minY || $checkPoint[1] > $maxY);
-			my ($minZ,$maxZ) = $s->minMaxN('z');
-			next if ($checkPoint[2] < $minZ || $checkPoint[2] > $maxZ);
-			if ($s->pointInsideObject(\@checkPoint)){
-				return 1;	
+		my $shortestDistToExtent = 99999;
+		for (my $j = 0 ; $j < @shapes ; $j++){
+			
+			if ($shapes[$j] != 0){
+				my $centre = $shapes[$j]->getCentre();
+				my $dist = distanceBetween($centre,\@checkPoint);
+				my $minExtent = $shapes[$j]->getMinExtent(); #have to be inside object at this distance
+				return 1 if ($minExtent > 0 && $dist <= $minExtent);
+				my $extent = $shapes[$j]->getMaxExtent();
+
+					if($prevDist[$j] > -1 && $dist > $prevDist[$j] && $dist > $extent){
+						$shapes[$j] = 0; #disregard this object in further checks for this point
+						
+						$remCnt++;
+					}else{
+						$prevDist[$j] = $dist;
+						my $distToExtent = $dist-$extent;
+						if ($distToExtent < $shortestDistToExtent){
+							$shortestDistToExtent = $distToExtent;
+						}
+						if ($dist <= $extent){
+							return 1 if ($shapes[$j]->pointInsideObject(\@checkPoint));
+						}
+					}
+
 			}
 		}
+		
+			
+		last if ($remCnt == scalar @shapes);
+		
+		if ($shortestDistToExtent < 2){
+			$i+=2;
+		}else{
+			$i+=$shortestDistToExtent;
+		}
+
 		
 	}
 	return 0;
