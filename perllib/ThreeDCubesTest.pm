@@ -39,6 +39,7 @@ sub new{
     		$self->{CAMERA}=[int($$displaycanvas->Width/2),int($$displaycanvas->Height/2),0]; #will probably want to handle screen resize
     		$self->{HEIGHT} = $$displaycanvas->Height;
     		$self->{WIDTH} = $$displaycanvas->Width;
+		$self->{FOCUS} = [int($$displaycanvas->Width/2),int($$displaycanvas->Height/2),1000]; #default focus - to make setable
 		}
     	$self->{CAMVEC_F} = [0,0,1]; #forward
     	$self->{CAMVEC_U} = [0,-1,0]; #up
@@ -55,8 +56,7 @@ sub new{
     	$self->{ZBUF} = 0;
     	$self->{BUFREADY}=0;
 		$self->{BASE_INTENSITY}=0.1;
-		$self->{FOCUS} = [int($$displaycanvas->Width/2),int($$displaycanvas->Height/2),1000]; #default focus - to make setable
-	bless $self;
+		bless $self;
 	return $self;
 
 }
@@ -107,8 +107,10 @@ sub registerObject
 	}
 	my $dispheight = $self->{HEIGHT};
 	my $dispwidth = $self->{WIDTH};	
-	#my @fp = ($dispwidth/2,$dispheight/2,1000); #should be centre of canvas
-	my @fp = @{$self->{FOCUS}};
+	my @fp = ($dispwidth/2,$dispheight/2,1000); #should be centre of canvas
+	if ($self->{FOCUS}){
+		@fp = @{$self->{FOCUS}};
+	}
 	if (@$focuspoint == 3){
 		@fp = @$focuspoint;
 	}

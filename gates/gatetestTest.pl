@@ -177,7 +177,9 @@ sub generateCourse{
 		$gate[$i]{'pos'} = [$x,$y,$z];
 		$gate[$i]{'angle'} = [(rand(2) > 1) ? 'y' : 'x',int(rand(90))];
 		$gate[$i]{'width'} = 25+int(rand(25));
-		$targets[$i/3]{'pos'} = [$x-50,$y - 120,$z-50] if ($i % 3 == 0);
+		
+			$targets[$i/3]{'pos'} = [$x-50,$y - 120,$z-50] if ($i % 3 == 0);
+		
 	}
 
 }
@@ -271,11 +273,12 @@ sub _move
 				#may want to work out distance of bullet to target first, may cut down on processing (not done atm)
 				#is only checking the first target in the list
 				my $col = 0;
-				$col = $tdc->collisionCheck_object($b,$targets[0]{'id'}) if (@targets > 0 && $targets[0]{'id'} > -1);
+				my $tid = scalar @targets -1;
+				$col = $tdc->collisionCheck_object($b,$targets[$tid]{'id'}) if (@targets > 0 && $targets[$tid]{'id'} > -1);
 				if ($col == 1){
 					$tdc->removeObject($b,1);
-					$tdc->removeObject($targets[0]{'id'},1);
-					shift(@targets);
+					$tdc->removeObject($targets[$tid]{'id'},1);
+					pop(@targets);
 				}else{
 					push(@drawBullets,$b);
 					$distances{$b}=$dist_camera;
