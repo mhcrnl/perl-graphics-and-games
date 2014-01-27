@@ -37,4 +37,4 @@ roids/roidstest.pl - Mostly a 2D Asteroids homage that does use some 3D elements
 Other
 ------
 The chat folder contains a simple chat program
-The various spheretest*.pl torustest*.pl are various tests of pixel drawing, bouncing balls etc. spheretest2.pl also contains an attempt at ray tracing for drawing shadows - though that implementation is not a general purpose function that can be added to the 3D library
+The various spheretest*.pl torustest*.pl are various tests of pixel drawing, bouncing balls etc. Note - Some require you to press return before they do anything

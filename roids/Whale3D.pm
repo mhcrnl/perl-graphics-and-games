@@ -5,6 +5,8 @@ use strict;
 
 our @ISA = qw(CanvasObject);
 
+my $vertexFacetMap;
+
 sub new
 {
 	my $self=CanvasObject->new;
@@ -153,12 +155,17 @@ sub new
 	
 	   	
 	$self->{VERTEXLIST}=\@vertexList;
-	$self->{FACETVERTICES}=\@facetVertices;
+	$self->{FACETVERTICES}=\@facetVertices; #this could possibly become class level, along with a new vertexfacet map as they won't change between objects
 	$self->{TAG}='whale';
 	$self->{ID}=0;
 	$self->{STATE}=0;
 	$self->{SORT} = 1;
-	$self->{GORAUD} = 2;
+	$self->{GORAUD} = 1;
+	
+	if (! $vertexFacetMap){
+		#to be used in finding shared normals without re-searching the facetvertices array every time
+		$vertexFacetMap = $self->getVertexFacetMap(); 
+	}
 	   	
 	bless $self;
     	return $self;
@@ -173,3 +180,20 @@ sub getBoundingBox
 	return ($$centre[0]-50, $$centre[1]-50,$$centre[0]+50, $$centre[1]+50);
 }
 
+sub vertexNormal
+{
+	my $self = shift;
+	my $vertexNo = shift;
+	if (! $vertexFacetMap){
+		$vertexFacetMap = $self->getVertexFacetMap(); 
+	}
+	
+	#there are shortcomings this method, it is not good where a vertex is shared by 2 facets that have big angles between them, in this case the fins
+	#they won't be shaded as expected
+	#is better for curved surfaces so works fairly well on the body
+	my $vertexNormal = $self->SUPER::vertexNormal($$vertexFacetMap[$vertexNo]);
+	
+	return $vertexNormal;
+}
+
+return 1;

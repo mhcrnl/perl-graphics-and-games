@@ -55,6 +55,7 @@ sub new{
     	$self->{MW}=$mw;
     	$self->{ZBUF} = 0;
     	$self->{BUFREADY}=0;
+    	$self->{DOSHADOW}=0;
 		$self->{BASE_INTENSITY}=0.1;
 		bless $self;
 	return $self;
@@ -970,28 +971,26 @@ sub _buildZBuffer #called per facet
 				$miny = $pt[$_][1];
 	    	}
  	}
- 	
-	    	
-	    	my $dispWidth = $self->{WIDTH};
-	    	my $dispHeight = $self->{HEIGHT};
-		$minx=0 if ($minx < 0);
-		$miny=0 if ($miny < 0);
-		$maxx=$dispWidth if ($maxx > $dispWidth);
-		$maxy=$dispHeight if ($maxy > $dispHeight);
+ 		    	
+	my $dispWidth = $self->{WIDTH};
+	my $dispHeight = $self->{HEIGHT};
+	$minx=0 if ($minx < 0);
+	$miny=0 if ($miny < 0);
+	$maxx=$dispWidth if ($maxx > $dispWidth);
+	$maxy=$dispHeight if ($maxy > $dispHeight);
 
 	    		
  
  	#get the colour at each corner of triangle
-    	 my @colourdec;
-    	 my @percentColour;
-    	  my @vert;
-    	  for (0..2){
-    	  	$vert[$_] = [$mpt[$_][0],$mpt[$_][1],$mpt[$_][2]];
-    	  }
+    my @colourdec;
+    my @percentColour;
+    my @vert;
+    for (0..2){
+    	$vert[$_] = [$mpt[$_][0],$mpt[$_][1],$mpt[$_][2]];
+    }
 
     	 
-    	 if ($self->{SHAPES}[$obj]->{GORAUD} == 1){ #some objects may define method for finding vertex normals as certain shapes can find the shared normal more easily, e.g. Spheres
-
+    if ($self->{SHAPES}[$obj]->{GORAUD} == 1){ #some objects may define method for finding vertex normals as certain shapes can find the shared normal more easily, e.g. Spheres
 
 		for (0..2){
 				my $vertNormal = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][$_]);
@@ -999,96 +998,27 @@ sub _buildZBuffer #called per facet
     	 	}
     	 	
     	 	
-	}elsif ($self->{SHAPES}[$obj]->{GORAUD} == 2){ #get average normal at vertex - probably expensive - has good blending and best used where angles from one facet to the next are not huge - terrain modelling would be a good example
-    	 
-    	 for (my $v = 0 ; $v < 3 ; $v++){
-		my $vertNo = $$facetVertices[$facetNo][$v];
-
-		my @facets = ();
-
-		for (my $i = 0 ; $i < @{$facetVertices} ;$i++){
-			if ($$facetVertices[$i][0] == $vertNo
-			|| $$facetVertices[$i][1] == $vertNo
-			|| $$facetVertices[$i][2] == $vertNo){
-				my $bf = _checkBackFace($self,\@{$$camVertList[$$facetVertices[$i][0]]},\@{$$camVertList[$$facetVertices[$i][1]]},\@{$$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
-				#if ($bf < 0.25){ #takes into account some rearward facing facets, but not those getting near to facing directly away
-				#this should produce more realistic shading
-				#however this may fall foul of a problem at some angles (like the whale fins) where two facets face away from each other producing a perpendicular normal so the shading will be well off what it should be
-				#so may be better just to use the forward facing facets 
-				#push(@facets,$i);}
-				
-				push(@facets,$i) if ($bf < 0);
-			}
-		}
-
-		my @vertNormal = (0,0,0);
-		for (my $i = 0 ; $i < @facets ; $i++){
-			my $vert1 = $$facetVertices[$facets[$i]][0];
-			my $vert2 = $$facetVertices[$facets[$i]][1];
-			my $vert3 = $$facetVertices[$facets[$i]][2];
-
-
-			my @normal = _getNormal(\@{$$vertexList[$vert1]},\@{$$vertexList[$vert2]},\@{$$vertexList[$vert3]},1);
-			foreach(0..2){
-				$vertNormal[$_] += $normal[$_];
-			}
-		}
-		
-		map{$_=$_/scalar(@facets)}@vertNormal;
-
-
-		_normalise(\@vertNormal); 
-		($colourdec[$v],$percentColour[$v]) = _getColourIntensity($self,$obj,\@vertNormal,$vert[$v]);    	 
-    	 }
-    	 
-    	 
-    	 }else{ # otherwise just use face normal and light vectors to vertices
-    	 	foreach (0..2){ #this shading model is perfect for some shapes e.g. Cubes or simple highly angular shapes
-    	 		($colourdec[$_],$percentColour[$_]) = _getShade($self,$mpt[0],$mpt[1],$mpt[2],$obj,$vert[$_],$basecolour,1);
+	}
+	else{ # otherwise just use face normal and light vectors to vertices
+    	 foreach (0..2){ #this shading model is perfect for some shapes e.g. Cubes or simple highly angular shapes
+    	 	($colourdec[$_],$percentColour[$_]) = _getShade($self,$mpt[0],$mpt[1],$mpt[2],$obj,$vert[$_],$basecolour,1);
     	 		
-    	 	}
     	 }
+   	}
     	 
 
-    	 #update the zbuffer - no drawing is done here
+    #update the zbuffer - no drawing is done here
 
-    	 #scanline for each x of extent of triangle
-    	 foreach my $x (int($minx+0.5)..int($maxx+0.5)){
-    	 	my @activeLines =();
-    	 	my @yVals =();
-    	 	for (my $i = 0 ; $i < @line ; $i++){
-    	 		#gets the y values of each line of the triangle for this scanline
-    	 		if ($x>=$line[$i]->{MINX} && $x<=$line[$i]->{MAXX}){
-    	 			my $y = $line[$i]->yAtx($x);
-    	 			if ($y ne 'n' && $y>=$line[$i]->{MINY} && $y<=$line[$i]->{MAXY}){
-    	 				push(@activeLines, $i);
-    	 				push(@yVals, $y);
-    	 			}
-    	 		}
-    	 	
-    	 	}
+    #scanline for each x of extent of triangle
+    foreach my $x (int($minx+0.5)..int($maxx+0.5)){
+    	 	#needs to be split up into smaller functions, this is a big foreach block
 
-		#we generally get 2 lines from the above, but it is possible all three lines may have valid y values, we need to discard 1 if so
-    	 	if (scalar @activeLines == 3){
-    	 	
-    	 		my $dif1 = $yVals[0]-$yVals[1];
-    	 		my $dif2 = $yVals[1]-$yVals[2];
-    	 		my $dif3 = $yVals[0]-$yVals[2];
-    	 		$dif1=$dif1*-1 if ($dif1 < 0);
-    	 		$dif2=$dif2*-1 if ($dif2 < 0);
-    	 		$dif3=$dif3*-1 if ($dif3 < 0);
-    	 		
-    	 		if (($dif1 < $dif2 && $dif1 < $dif3) || ($dif3 < $dif2 && $dif3 < $dif1)){
-    	 			shift @yVals;
-    	 			shift @activeLines;
-    	 		}elsif ($dif2 < $dif1 && $dif2 < $dif3){
-    	 			pop @yVals;
-    	 			pop @activeLines;
-    	 		}
-    	 	}
-
+			my ($activeLinesRef, $yValsRef) = _getScanline($x, \@line);
+    	 	my @activeLines = @$activeLinesRef;
     	 	
     	 	next if (scalar @activeLines != 2); #we need 2 lines to draw between, if we don't have two, go to the next scanline
+    	 	
+    	 	my @yVals = @$yValsRef;
     	 			
 		if ($yVals[0] > $yVals[1]){
 			@yVals = reverse @yVals;
@@ -1113,7 +1043,7 @@ sub _buildZBuffer #called per facet
 		
 			#check if hidden by something
 
-			my $zval = $zbuf->{"$x"."_$y"."z"};
+			my $zval = $zbuf->{"$x"."_$y"."z"}; #could be more efficient as a 2D structure?
 			
 			if ($z >= 0 && (! $zval || $zval>$z )){
 				push (@yToProcess,[$y,$z]);
@@ -1164,8 +1094,6 @@ sub _buildZBuffer #called per facet
 					$colourIntAtThisPoint = $self->{BASE_INTENSITY};
 				}
 			}
-
-			
 	
 			my $colour = _getColourString($colourIntAtThisPoint*255,$basecolour,$colourIntAtThisPoint,$self,$obj);
 			#write pixel details to zbuffer 
@@ -1178,7 +1106,7 @@ sub _buildZBuffer #called per facet
 		} #end for
 		} #end lock
     	 	
-    	 } #end scanline foreach 
+    } #end scanline foreach 
  }
    
 
@@ -1222,7 +1150,7 @@ sub _getPerspective
 sub _reversePerspective{
 	#working out a world coord from screen coord in perspective mode (need for shadows) 
 	#only use of all objects use the same focus
-
+	
 	my $self = shift;
 	my $point = shift;
 	my @focuspoint = @{$self->{FOCUS}};
@@ -1571,14 +1499,11 @@ sub _checkBackFace
  
  sub _inShadow{
  	
- 	#aw! f'in 'ell - just realised - checking the extent on world coords, when using a camera coord starting point - showed up by a sphere casting shadow on itself!
- 	
  	my $self = shift;
  	my $pt = shift;
 	
  	return 0 if (($$pt[0] % 2 == 0 && $$pt[1] % 2 != 0) || ($$pt[0] % 2 != 0 && $$pt[1] % 2 == 0)); #should reduce processing a bit
 	my $point = $self->_reversePerspective($pt); #ok, works out a world coord, assumes perspective mode, will need to sort something out for fov
-	
 
  	my @ls = @{$self->{LIGHTSOURCE}};
  	my @shapes = @{$self->{SHAPES}};
@@ -1649,6 +1574,47 @@ sub _checkBackFace
  		${$self->{MW}}->update;
  	}
  	# else client program is reponsible for updating
+ }
+ 
+ sub _getScanline
+ {
+ 	my $x = shift;
+ 	my $lineref = shift;
+ 	my @line = @$lineref;
+ 	my @activeLines =();
+    my @yVals =();
+    for (my $i = 0 ; $i < @line ; $i++){
+    	#gets the y values of each line of the triangle for this scanline
+    	if ($x>=$line[$i]->{MINX} && $x<=$line[$i]->{MAXX}){
+    	 	my $y = $line[$i]->yAtx($x);
+    	 	if ($y ne 'n' && $y>=$line[$i]->{MINY} && $y<=$line[$i]->{MAXY}){
+    	 		push(@activeLines, $i);
+    	 		push(@yVals, $y);
+    	 	}
+    	}
+    	 	
+    }
+
+	#we generally get 2 lines from the above, but it is possible all three lines may have valid y values, we need to discard 1 if so
+    if (scalar @activeLines == 3){
+    	 	
+    	my $dif1 = $yVals[0]-$yVals[1];
+    	my $dif2 = $yVals[1]-$yVals[2];
+    	my $dif3 = $yVals[0]-$yVals[2];
+    	$dif1=$dif1*-1 if ($dif1 < 0);
+    	$dif2=$dif2*-1 if ($dif2 < 0);
+    	$dif3=$dif3*-1 if ($dif3 < 0);
+    	 		
+    	if (($dif1 < $dif2 && $dif1 < $dif3) || ($dif3 < $dif2 && $dif3 < $dif1)){
+    	 	shift @yVals;
+    	 	shift @activeLines;
+    	 }elsif ($dif2 < $dif1 && $dif2 < $dif3){
+    	 	pop @yVals;
+    	 	pop @activeLines;
+    	 	}
+    	 }
+    	 
+    	 return (\@activeLines, \@yVals);
  }
 
 

@@ -100,7 +100,7 @@ sub vertexNormal
 
 sub getMaxExtent{
 	my $self=shift;
-	return $self->{RADIUS}-1; #take a bit of as its not a perfect sphere
+	return $self->{RADIUS}-1; #take a bit off as its not a perfect sphere
 }
 
 sub getMinExtent{

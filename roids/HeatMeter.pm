@@ -12,37 +12,55 @@ sub new
 	$self->{COOLRATE} = shift;
 	$self->{HEAT} = 0;
 	${$self->{CNV}}->createText(5,10, -anchor=>'w',-fill=>'white',-text=>"Heat");
-	bless $self;
-    	return $self;
+	
+	my $closure = {};
+	
+	#testing closure setup, keeps the object data private
+	$closure->{RESET} = sub {
+		$self->{HEAT}=0;
+	};
+	
+	$closure->{COOL} = sub {
+		my $heat=shift;
+		$self->{HEAT} = $self->{HEAT}*$self->{COOLRATE};
+		$self->{HEAT} = 0 if ($self->{HEAT} < 1);
+		$self->{HEAT} += $heat if ($heat);
+		_draw($self);
+	};
+	
+	$closure->{HEAT} = sub {
+		my $heatAmount = shift;
+		return 1 if ($heatAmount < 0);
+		if ($self->{HEAT}+$heatAmount <= 100){
+			$self->{HEAT}+=$heatAmount;
+			_draw($self);
+			return 1;
+		}
+		return 0;
+	};
+		
+
+    bless $closure;
+    return $closure;
+    	
 }
 
 sub cool
 {
-	my $self=shift;
-	my $heat=shift;
-	$self->{HEAT} = $self->{HEAT}*$self->{COOLRATE};
-	$self->{HEAT} = 0 if ($self->{HEAT} < 1);
-	$self->{HEAT} += $heat if ($heat);
-	_draw($self);
+	my $closure = shift;
+	&{$closure->{COOL}};
 }
 
 sub heat
 {
-	my $self=shift;
-	my $heatAmount = shift;
-	return 1 if ($heatAmount < 0);
-	if ($self->{HEAT}+$heatAmount <= 100){
-		$self->{HEAT}+=$heatAmount;
-		_draw($self);
-		return 1;
-	}
-	return 0;
+	my $closure = shift;
+	&{$closure->{HEAT}};
 }
 
 sub reset
 {
-	my $self=shift;
-	$self->{HEAT}=0;
+	my $closure = shift;
+	&{$closure->{RESET}};
 }
 
 
@@ -54,9 +72,6 @@ sub _draw
 	my $heat = int($self->{HEAT});
 	my ($red, $green, $blue);
 	for (my $i = 0 ; $i < $heat ; $i++){
-		#my $red = _convert(2.55*$i);
-		#my $blue = _convert(255 - (2.55*$i));
-		#my $colour = "#".$red."00".$blue;
 		
 		if ($i < 51){
 			$red = "00";
