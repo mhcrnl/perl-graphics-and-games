@@ -79,9 +79,7 @@ sub new
 	}
 	#print "$idno\n";
 	push(@vertexList,[0,0,0]);
-
-		   	
-	$self->{GORAUD} = 1;  
+		   
 	$self->{VERTEXLIST}=\@vertexList;
 	$self->{FACETVERTICES}=\@facetVertices;
 	$self->{RADIUS}=$sphereradius;

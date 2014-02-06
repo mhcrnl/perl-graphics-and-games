@@ -101,7 +101,6 @@ sub new
 	my $cnt=0;
 
 	$self->{POINTS}=$points;
-	$self->{GORAUD}=1;
 	$self->{VERTEXLIST}=\@vertexList;
 	$self->{FACETVERTICES}=\@facetVertices;	
 	$self->{SORT} = 1;

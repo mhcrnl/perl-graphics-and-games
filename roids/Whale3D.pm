@@ -160,7 +160,6 @@ sub new
 	$self->{ID}=0;
 	$self->{STATE}=0;
 	$self->{SORT} = 1;
-	$self->{GORAUD} = 1;
 	
 	if (! $vertexFacetMap){
 		#to be used in finding shared normals without re-searching the facetvertices array every time
@@ -184,14 +183,12 @@ sub vertexNormal
 {
 	my $self = shift;
 	my $vertexNo = shift;
+	my $facetNo = shift;
 	if (! $vertexFacetMap){
 		$vertexFacetMap = $self->getVertexFacetMap(); 
 	}
 	
-	#there are shortcomings this method, it is not good where a vertex is shared by 2 facets that have big angles between them, in this case the fins
-	#they won't be shaded as expected
-	#is better for curved surfaces so works fairly well on the body
-	my $vertexNormal = $self->SUPER::vertexNormal($$vertexFacetMap[$vertexNo]);
+	my $vertexNormal = $self->SUPER::vertexNormal($vertexNo, $facetNo, $$vertexFacetMap[$vertexNo]);
 	
 	return $vertexNormal;
 }

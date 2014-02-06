@@ -705,14 +705,21 @@ sub outputZBuffer{
 	my %zbuffer = %$bufref;
 	$$cnv->delete('all');
 	$self->{BUFREADY}=0;
-			foreach my $key (keys %zbuffer){
-			#print "$key\n";
-			#print $zbuffer{$key}."\n";
-			if ($key=~m/^(\d+)_(\d+)c$/){
-				my $tempy = $2;
-				my $tempx = $1;
-				#draw pixels as defined by zbuffer
-				$$cnv->createLine($tempx, $tempy,$tempx+1, $tempy, -fill=>$zbuffer{$key});
+#			foreach my $key (keys %zbuffer){
+#			#print "$key\n";
+#			#print $zbuffer{$key}."\n";
+#			if ($key=~m/^(\d+)_(\d+)c$/){
+#				my $tempy = $2;
+#				my $tempx = $1;
+#				#draw pixels as defined by zbuffer
+#				$$cnv->createLine($tempx, $tempy,$tempx+1, $tempy, -fill=>$zbuffer{$key});
+#			}
+#		}
+		foreach my $xval (keys %zbuffer)
+		{
+			foreach my $yval (keys %{$zbuffer{$xval}})
+			{
+				$$cnv->createLine($xval, $yval,$xval+1, $yval, -fill=>$bufref->{$xval}->{$yval}->{C});
 			}
 		}
 	
@@ -889,34 +896,15 @@ sub _getTriangleCentre
 	$pt[1] = shift;
 	$pt[2] = shift;
 	
-	my $maxx = $pt[0][0];
-	my $minx = $pt[0][0];
-	my $maxy = $pt[0][1];
-	my $miny = $pt[0][1];
-	my $maxz = $pt[0][2];
-	my $minz = $pt[0][2];
-	
-	foreach (1..2){
-		if ($pt[$_][0] > $maxx){
-			$maxx = $pt[$_][0];
-		}elsif ($pt[$_][0] < $minx){
-			$minx = $pt[$_][0];
-		}
-		if ($pt[$_][1] > $maxy){
-			$maxy = $pt[$_][1];
-		}elsif ($pt[$_][1] < $miny){
-			$miny = $pt[$_][1];
-		}
-		if ($pt[$_][2] > $maxz){
-			$maxz = $pt[$_][2];
-		}elsif ($pt[$_][2] < $minz){
-			$minz = $pt[$_][2];
-		}
+	my @centre = (0,0,0);
+	foreach (0..2)
+	{
+	 $centre[0] += $pt[$_][0];
+	 $centre[1] += $pt[$_][1];
+	 $centre[2] += $pt[$_][2];
 	}
 	
-	return ($minx+(($maxx-$minx)/2),$miny+(($maxy-$miny)/2),$minz+(($maxz-$minz)/2));
-	
-	
+	return map{$_=$_/3}@centre;	
 }
 
 sub _buildZBuffer #called per facet
@@ -978,33 +966,16 @@ sub _buildZBuffer #called per facet
 	$miny=0 if ($miny < 0);
 	$maxx=$dispWidth if ($maxx > $dispWidth);
 	$maxy=$dispHeight if ($maxy > $dispHeight);
-
 	    		
- 
  	#get the colour at each corner of triangle
     my @colourdec;
     my @percentColour;
-    my @vert;
-    for (0..2){
-    	$vert[$_] = [$mpt[$_][0],$mpt[$_][1],$mpt[$_][2]];
+    	 
+	for (0..2){
+		my $vertNormal = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][$_], $facetNo);
+    	($colourdec[$_],$percentColour[$_]) = _getColourIntensity($self,$obj,$vertNormal,$mpt[$_]);
     }
 
-    	 
-    if ($self->{SHAPES}[$obj]->{GORAUD} == 1){ #some objects may define method for finding vertex normals as certain shapes can find the shared normal more easily, e.g. Spheres
-
-		for (0..2){
-				my $vertNormal = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][$_]);
-    	 		($colourdec[$_],$percentColour[$_]) = _getColourIntensity($self,$obj,$vertNormal,$vert[$_]);
-    	 	}
-    	 	
-    	 	
-	}
-	else{ # otherwise just use face normal and light vectors to vertices
-    	 foreach (0..2){ #this shading model is perfect for some shapes e.g. Cubes or simple highly angular shapes
-    	 	($colourdec[$_],$percentColour[$_]) = _getShade($self,$mpt[0],$mpt[1],$mpt[2],$obj,$vert[$_],$basecolour,1);
-    	 		
-    	 }
-   	}
     	 
 
     #update the zbuffer - no drawing is done here
@@ -1043,11 +1014,15 @@ sub _buildZBuffer #called per facet
 		
 			#check if hidden by something
 
-			my $zval = $zbuf->{"$x"."_$y"."z"}; #could be more efficient as a 2D structure?
-			
-			if ($z >= 0 && (! $zval || $zval>$z )){
-				push (@yToProcess,[$y,$z]);
+			#my $zval = $zbuf->{"$x"."_$y"."z"}; #could be more efficient as a 2D structure? except shared stuffs up any nesting!
+			my $zval = -1;
+			if($zbuf->{$x} && $zbuf->{$x}->{$y}){
+				$zval = $zbuf->{$x}->{$y}->{Z};
 			}
+			#if ($z >= 0 && (! $zval || $zval>$z )){
+			if ($z >= 0 && ($zval == -1 || $zval>$z) ){
+				push (@yToProcess,[$y,$z]);
+			}			
 			
 		}
 		}
@@ -1098,11 +1073,29 @@ sub _buildZBuffer #called per facet
 			my $colour = _getColourString($colourIntAtThisPoint*255,$basecolour,$colourIntAtThisPoint,$self,$obj);
 			#write pixel details to zbuffer 
 			
-			$zbuf->{"$x"."_$y"."z"}=$z;	
-			$zbuf->{"$x"."_$y"."c"}=$colour;
+			#$zbuf->{"$x"."_$y"."z"}=$z;	
+			#$zbuf->{"$x"."_$y"."c"}=$colour;
 			
-
-
+			if ($zbuf->{$x}){
+				if (! $zbuf->{$x}->{$y}){
+					my %tempbufzc :shared;
+										
+					$zbuf->{$x}->{$y} = \%tempbufzc;
+				}
+				$zbuf->{$x}->{$y}->{Z} = $z;
+				$zbuf->{$x}->{$y}->{C} = $colour;
+			}
+			else
+			{
+				my %tempbufy :shared;
+				my %tempbufzc :shared;
+				
+				$tempbufzc{Z} = $z;
+				$tempbufzc{C} = $colour;
+				$tempbufy{$y} = \%tempbufzc;
+				$zbuf->{$x} = \%tempbufy;
+			}
+			
 		} #end for
 		} #end lock
     	 	
@@ -1513,12 +1506,13 @@ sub _checkBackFace
 	my @vector = ($ls[0] - $$point[0], $ls[1] - $$point[1], $ls[2] - $$point[2]);
 	_normalise(\@vector);
 
-	for (my $i = 2 ; $i < distanceBetween(\@ls, $point) ; ){ 
+	for (my $i = 5 ; $i < distanceBetween(\@ls, $point) ; ){ 
 		#basic ray trace, checks all points along vector till we hit something - will not have good performance - no doubt a better algorithm out there
 		#yep it's hideously slow
 		
 		#other things to do - disregard if moving away, and more than the max extent away
 		#increase $i more where there is a large gap to the nearest object
+		#get nearest object to lightsource, don't need to check inside that distance
 		
 		#annoyingly this hasn't come out particularly faster! :(
 		my @checkPoint = ($$point[0]+($vector[0]*$i),$$point[1]+($vector[1]*$i),$$point[2]+($vector[2]*$i));

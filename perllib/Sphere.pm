@@ -64,8 +64,7 @@ sub new
 	$sphereseg = undef;
 	
 	push(@vl,[$sphereradius,$sphereradius,$sphereradius]);
-	   	
-	$self->{GORAUD} = 1;  	
+	   	 	
 	$self->{VERTEXLIST}=\@vl;
 	$self->{FACETVERTICES}=\@fv;
 	$self->{RADIUS}=$sphereradius;
