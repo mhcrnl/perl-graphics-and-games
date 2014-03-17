@@ -444,10 +444,10 @@ sub _fire
 				$d=$d*$fraction if ($fraction>-1);
 				$height=$height-$dlock+$d;
 				$comingdown = 1;
-				$ttime+=0.01;
+				$ttime+=0.1;
 			}
 			$y = $sealevel - $height;
-			$time+=0.01;
+			$time+=0.1;
 			#print "$x,$y\n";
 			$cnv->coords($shell, $x-1,$y-1,$x+1,$y+1);
 			$mw->update;

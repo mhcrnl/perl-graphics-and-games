@@ -1,5 +1,5 @@
-use Whale3D;
 use lib '../perllib';
+use Whale3D;
 use ThreeDCubesTest;
 use Tk;
 
