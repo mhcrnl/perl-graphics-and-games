@@ -1,5 +1,5 @@
 package Bullet;
-
+use lib '..\perllib';
 use Tk;
 use GamesLib;
 use Math::Trig;

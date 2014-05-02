@@ -1,4 +1,5 @@
 package Gate;
+use lib '..\perllib';
 use CanvasObject;
 use GamesLib;
 use Cuboid;

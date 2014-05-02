@@ -1,4 +1,5 @@
 package Whale3D;
+use lib '..\perllib';
 use CanvasObject;
 use strict;
 

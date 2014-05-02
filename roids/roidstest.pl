@@ -34,6 +34,7 @@ our $cnv;
 our $cframe;
 
 our $level = 1;
+our $maxlevel = 8;
 our $heat;
 our @bullets;
 our $roundType;
@@ -179,7 +180,7 @@ sub _buildTopLevel
 	my $tempx = int(($cx+30)/2);
 	my $ctlf = $mw->Frame(-width=>$tempx, -height=>100, -background => 'black', -borderwidth=>2)->pack;
 	$cntl = $ctlf->Canvas(-width=>$tempx, -height =>67, -background => 'black')->grid(-column=>0, -row=>0, -pady=>0);
-	$ctlf->Scale(-orient=>'horizontal',-from=>1,-to=>8,-tickinterval=>1,-background=>'black', -foreground=>'white', -length=>$tempx-5, -width=>10,
+	$ctlf->Scale(-orient=>'horizontal',-from=>1,-to=>$maxlevel,-tickinterval=>1,-background=>'black', -foreground=>'white', -length=>$tempx-5, -width=>10,
 			-label=>'Level',-variable=>\$level)->grid(-column=>1, -row=>0, -pady=>0);
 	$mw->bind('<Return>'=>[\&go]);
 	$mw->bind('<space>'=>[\&firepress]);
@@ -444,8 +445,7 @@ sub go
 		if ($cycle == $nextroid){
 			_generateRoid();
 			$cycle = 0;
-			$nextroid = 10+int(rand(120-(15*$level)));
-			#print "$nextroid\n";
+			$nextroid = _nextRoidDelay();
 		}
 		_handlespecials();
 		_handleAlien() if ($coolingcycle%2 == 1); #less critical events every second cycle, hopefully aids performance
@@ -481,6 +481,22 @@ sub go
 		
 	}
 }
+
+sub _nextRoidDelay
+{
+	#get number of cycles before next roid is generated
+	#increase generation chance when less than 10 roids, higher level can increase generation too
+	my $interval = 15;
+	my $maxWait = $interval*$maxlevel;
+	my $cnt = scalar keys(%roids);
+	if ($cnt < 10)
+	{
+		$maxWait = ($maxWait / 10) * $cnt;
+		$interval = $maxWait/$maxlevel;
+	}
+	return 10+int(rand($maxWait-($interval*$level)));
+}
+
 
 sub _handleWhale
 {
@@ -1163,7 +1179,7 @@ sub _generateRoid
 {
 	my @temp = keys(%roids);
 	my $cnt = @temp;
-	return if ($cnt>30); #do not generate if more than 30 roids, may tweak this
+	return if ($cnt > ($cx*$cy) / 30000); #should maintain same roid density across different sized screens
 	my $a = int(rand(100)) % 2;
 	my $argx = 0;
 	my $argy = 0;

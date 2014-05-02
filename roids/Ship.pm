@@ -1,5 +1,5 @@
 package Ship;
-
+use lib '..\perllib';
 use CanvasObject;
 use Tk;
 use Math::Trig;

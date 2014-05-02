@@ -1,4 +1,5 @@
 package ColourPicker;
+use lib '..\perllib';
 use strict;
 use GamesLib;
 use Tk;

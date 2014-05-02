@@ -1,4 +1,5 @@
 package HeatMeter;
+use lib '..\perllib';
 use GamesLib;
 use strict;
 use Tk;

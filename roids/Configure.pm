@@ -1,5 +1,5 @@
 package Configure;
-
+use lib '..\perllib';
 use strict;
 use Tk;
 use ThreeDCubesTest;

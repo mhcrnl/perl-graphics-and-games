@@ -1,4 +1,5 @@
 package Bullet3D;
+use lib '..\perllib';
 use CanvasObject;
 
 @ISA = qw(CanvasObject);

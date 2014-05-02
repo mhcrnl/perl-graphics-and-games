@@ -1,5 +1,5 @@
 package Drone;
-
+use lib '..\perllib';
 use Bullet;
 use Math::Trig;
 use Tk;
