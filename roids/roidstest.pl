@@ -17,6 +17,7 @@ use LineEq;
 use Math::Trig;
 use Whale3D;
 use ThreeDCubesTest;
+use Special;
 use strict;
 
 our $mainw = MainWindow->new(-background=>'black');
@@ -73,11 +74,12 @@ our $ddown = 0;
 
 	our @specials;
 	
-	$specials[0] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds];
-	$specials[1] = [\&_triplefire,sub{},\&_dotriplefire,sub{}];
-	$specials[2] = [\&_newbomb,sub{},\&_collectbomb,sub{}];
+	$specials[0] = [\&_triplefire,sub{},\&_dotriplefire,sub{}];
+	$specials[1] = [\&_newbomb,sub{},\&_collectbomb,sub{}];
+	$specials[2] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln];
+	our $stackablespecials = scalar @specials;
 	$specials[3] = [\&_incROF,sub{},\&_doincROF,\&_endincROF];
-	$specials[4] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln];
+	$specials[4] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds];
 	$specials[5] = [sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds];
 	$specials[6] = [sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds];
 	$specials[7] = [sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds];
@@ -93,10 +95,8 @@ our $ddown = 0;
 	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate];
 	
 	
-	
-	
 	our $specialavailable;
-	our $specialactive;
+	our @specialactive;
 	our $specialstarttime;
 	our $ship = undef;
 	our $dontEnd = 0;
@@ -385,7 +385,7 @@ sub _resetShip
 	$alien=undef;
 	$drone=undef;
 	$specialavailable = -1;
-	$specialactive = 0;
+	@specialactive = ();
 	$specialstarttime = 0;
 	$pausetime = 0;
 	$roundType = 'STD';
@@ -420,7 +420,14 @@ sub go
 	}
 	$music->play('main');
 	$go = 1;
-	$specialstarttime = time() - $pausetime if ($pausetime > 0);
+
+		$specialstarttime = time() - $pausetime if ($pausetime > 0);
+	
+		foreach(@specialactive)
+		{
+			$_->{STARTTIME} = time() - $_->{PAUSETIME};
+			$_->{PAUSETIME} = 0;
+		}
 	$pausetime = 0;
 	my $cycle = 0;
 	my $coolingcycle = 0;
@@ -691,47 +698,65 @@ sub _handleBullets
 sub _handlespecials
 {
 
-	if (time() - $specialstarttime > 10 && $specialavailable > -1 && $specialactive == 0){
+	if (time() - $specialstarttime > 10 && $specialavailable > -1 && @specialactive == 0){
 		$specialavailable = -1;
 		$cnv->delete('special');
 	}
 	elsif ($specialavailable == -1){
 		my $rand = int(rand(300));
-		#my $rand = 1;
+		my $rand = 1;
 		if ($rand == 1){
-			$specialavailable = int(rand($goodspecials-0.01));
+			my @temp = grep{$_->{ID} >= $stackablespecials} @specialactive;
+			if (@temp > 0)
+			{
+				$specialavailable = int(rand($stackablespecials-0.01));
+			}
+			else
+			{
+				$specialavailable = int(rand($goodspecials-0.01));
+			}
 			#$specialavailable = 9;
 			$specialstarttime = time();
 			&{$specials[$specialavailable][0]};
 		}
 	}
-	elsif ($specialactive ==1){
-		my $t = 20 - (time()-$specialstarttime);
-		&{$specials[$specialavailable][2]};
-		$t = 0 if ($t < 0);
-		$cntl->itemconfigure('countdown', -text=>"$t");
-		if ($t <= 0){
-			&{$specials[$specialavailable][3]};
-			$specialavailable = -1;
-			$specialactive = 0;
-			$cntl->itemconfigure('specialtext', -text=>'NORMAL');
-		}
+	
+	while (@specialactive > 0 && $specialactive[0]->hasExpired())
+	{
+		&{$specials[$specialactive[0]->{ID}][3]};
+		shift @specialactive;
 	}
-	elsif ($specialavailable > -1 && $specialactive == 0){
+	
+	if (@specialactive > 0)
+	{
+		$cntl->itemconfigure('countdown', -text=>$specialactive[@specialactive-1]->timeLeft());
+	}
+	else
+	{
+		$cntl->itemconfigure('countdown', -text=>"0");
+		$cntl->itemconfigure('specialtext', -text=>"NORMAL");
+	}
+	
+	if ($specialavailable > -1){
 		&{$specials[$specialavailable][1]};
 		my ($x, $y, $x1, $y1) = $cnv->coords('special');
 		my @obj = $cnv->find('overlapping', $x, $y, $x1, $y1);
 		my $del = 0;
 		foreach my $id (@obj){
 			if (${$cnv->itemcget($id, -tags)}[0] eq $ship->{TAG} && $del == 0){
-				$specialstarttime = time();
-				$specialactive = &{$specials[$specialavailable][2]};
+				my $active = Special->new($specialavailable, time());
+				push (@specialactive, $active);
+				$specialavailable = -1;
 				$sound->play('special');
 				$del = 1;
 				last;
 			}
 		}
 		$cnv->delete('special') if ($del == 1);
+	}
+	
+	foreach (@specialactive){
+		&{$specials[$_->{ID}][2]};
 	}
 }
 
@@ -868,16 +893,20 @@ sub _processEffect
 		$go = 2;
 		return;
 	}
-	if ($specialactive == 1 || $specialavailable > -1){
+	if (@specialactive > 0 || $specialavailable > -1){
 		#remove any existing special
-		$specialstarttime -= 20;
+		foreach(@specialactive)
+		{
+			$_->{STARTTIME}-=20;
+		}
 		_handlespecials();
 	}
 	#replace with the bad special
 	$cnv->delete('special'); #remove any special icon on screen
 	$specialstarttime = time();
 	$specialavailable = $goodspecials + $effect - 1;
-	$specialactive = &{$specials[$specialavailable][2]};
+	&{$specials[$specialavailable][2]};
+	push (@specialactive, Special->new($specialavailable, time()));
 	
 }
 
@@ -1220,8 +1249,14 @@ sub stop
 	#should rename as pause
 	$go = 0;
 	$pausetime = 0;
-	if ($specialactive > 0){
+	if ($specialavailable > -1){
 		$pausetime = time()-$specialstarttime;
+	}
+	if (@specialactive > 0){
+		foreach(@specialactive)
+		{
+			$_->{PAUSETIME} = time()-$_->{STARTTIME};
+		}
 	}
 }
 
@@ -1277,7 +1312,7 @@ sub _triplefire
 
 sub _doinvuln
 {
-	if ($specialactive == 0){
+	if (@specialactive == 0){
 		$checkroids = 0;
 		#$cnv->itemconfigure('ship', -fill=>'yellow');
 		$ship->setColour('yellow');
@@ -1335,7 +1370,7 @@ sub _incROF
 
 sub _doincROF
 {
-	if($specialactive == 0){
+	if(@specialactive == 0){
 		$ship->{rof} = $ship->{rof}/2;
 		$ship->{heat} = $ship->{heat}/3; #let them have fun
 		$cntl->itemconfigure('specialtext', -text=>'+ ROF');
@@ -1365,7 +1400,7 @@ sub _ammoBox
 
 sub _doAmmo{
 	my $type = shift;
-	if($specialactive == 0){
+	if(@specialactive == 0){
 		$roundType = $type;
 		my $text;
 		$text = 'Tracking Rounds' if ($type eq 'TRK');
@@ -1517,35 +1552,35 @@ sub _getColour{
 }
 
 sub _doReverse{
-	return 0 if ($specialactive > 0);
+	return 0 if (@specialactive > 0);
 	$ship->{turnrate} = $ship->{turnrate}*-1;
 	$cntl->itemconfigure('specialtext', -text=>'Reversed Controls');
 	return 1;
 }
 
 sub _doSlow{
-	return 0 if ($specialactive > 0);
+	return 0 if (@specialactive > 0);
 	$ship->{mspeed} = $ship->{mspeed}/3;
 	$cntl->itemconfigure('specialtext', -text=>'Slow Speed');
 	return 1;
 }
 
 sub _doFast{
-	return 0 if ($specialactive > 0);
+	return 0 if (@specialactive > 0);
 	$ship->{mspeed} += 7;
 	$cntl->itemconfigure('specialtext', -text=>'Hyper Speed');
 	return 1;
 }
 
 sub _doLoseGun{
-	return 0 if ($specialactive > 0);
+	return 0 if (@specialactive > 0);
 	$fire = -1;
 	$cntl->itemconfigure('specialtext', -text=>'No Gun');
 	return 1;
 }
 
 sub _doTurnRate{
-	return 0 if ($specialactive > 0);
+	return 0 if (@specialactive > 0);
 	$ship->{turnrate} -= 2;
 	$cntl->itemconfigure('specialtext', -text=>'Reduced Turn Rate');
 	return 1;
@@ -1758,12 +1793,11 @@ sub useBomb
 
 sub useCrystal
 {
-	if ($specialactive == 0 && $crystal > -1){ #do not activate if a special is active
+	if (@specialactive == 0 && $crystal > -1){ #do not activate if a special is active
 		#print "$crystal\n";
 		$cnv->delete('special'); #remove any special icon on screen
-		$specialstarttime = time();
-		$specialavailable = $crystal; 
-		$specialactive = &{$specials[$specialavailable][2]};
+		push (@specialactive, Special->new($crystal, time()));
+		&{$specials[$crystal][2]};
 		#reset
 		$cframe->configure(-background=>'black');
 		$crystal = -1;
