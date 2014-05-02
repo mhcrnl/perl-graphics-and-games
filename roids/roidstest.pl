@@ -745,6 +745,7 @@ sub _handlespecials
 		foreach my $id (@obj){
 			if (${$cnv->itemcget($id, -tags)}[0] eq $ship->{TAG} && $del == 0){
 				my $active = Special->new($specialavailable, time());
+				&{$specials[$specialavailable][2]};
 				push (@specialactive, $active);
 				$specialavailable = -1;
 				$sound->play('special');
