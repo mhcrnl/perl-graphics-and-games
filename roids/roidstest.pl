@@ -74,7 +74,7 @@ our $ddown = 0;
 
 	our @specials;
 	
-	$specials[0] = [\&_triplefire,sub{},\&_dotriplefire,sub{}];
+	$specials[0] = [\&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire];
 	$specials[1] = [\&_newbomb,sub{},\&_collectbomb,sub{}];
 	$specials[2] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln];
 	our $stackablespecials = scalar @specials;
@@ -98,6 +98,7 @@ our $ddown = 0;
 	our $specialavailable;
 	our @specialactive;
 	our $specialstarttime;
+	our $tripleFlag = 0;
 	our $ship = undef;
 	our $dontEnd = 0;
 	
@@ -382,6 +383,7 @@ sub _resetShip
 	$fire = 0;
 	$checkroids = 1;
 	$bomb = 0;
+	$tripleFlag = 0;
 	$alien=undef;
 	$drone=undef;
 	$specialavailable = -1;
@@ -704,7 +706,7 @@ sub _handlespecials
 	}
 	elsif ($specialavailable == -1){
 		my $rand = int(rand(300));
-		my $rand = 1;
+		#my $rand = 1;
 		if ($rand == 1){
 			my @temp = grep{$_->{ID} >= $stackablespecials} @specialactive;
 			if (@temp > 0)
@@ -729,7 +731,7 @@ sub _handlespecials
 	
 	if (@specialactive > 0)
 	{
-		$cntl->itemconfigure('countdown', -text=>$specialactive[@specialactive-1]->timeLeft());
+		$cntl->itemconfigure('countdown', -text=>$specialactive[0]->timeLeft());
 	}
 	else
 	{
@@ -745,6 +747,7 @@ sub _handlespecials
 		foreach my $id (@obj){
 			if (${$cnv->itemcget($id, -tags)}[0] eq $ship->{TAG} && $del == 0){
 				my $active = Special->new($specialavailable, time());
+				@specialactive = grep{$_->{ID} != $specialavailable} @specialactive; #drop existing specials that are the same
 				&{$specials[$specialavailable][2]};
 				push (@specialactive, $active);
 				$specialavailable = -1;
@@ -756,9 +759,9 @@ sub _handlespecials
 		$cnv->delete('special') if ($del == 1);
 	}
 	
-	foreach (@specialactive){
-		&{$specials[$_->{ID}][2]};
-	}
+	#foreach (@specialactive){
+	#	&{$specials[$_->{ID}][2]};
+	#}
 }
 
 sub _breakship
@@ -1282,6 +1285,10 @@ sub _fire
 				for (my $i = $ship->{guns} ; $i-- ;){
 					_generateBullet($ship->{pspeed},$i);
 				}
+				if ($tripleFlag == 1){
+					_generateBullet($ship->{pspeed},3);
+					_generateBullet($ship->{pspeed},4);
+				}
 			}
 		}
 	}
@@ -1313,14 +1320,14 @@ sub _triplefire
 
 sub _doinvuln
 {
-	if (@specialactive == 0){
+	#if (@specialactive == 0){
 		$checkroids = 0;
 		#$cnv->itemconfigure('ship', -fill=>'yellow');
 		$ship->setColour('yellow');
 		$cntl->itemconfigure('specialtext', -text=>'INVULNERABLE');
 		return 1;
-	}
-	return 0;
+	#}
+	#return 0;
 }
 
 sub _endinvuln
@@ -1333,15 +1340,13 @@ sub _endinvuln
 sub _dotriplefire
 {
 	$cntl->itemconfigure('specialtext', -text=>'TRIPLE FIRE');
-	if ($fire == 1){
-		my $time = getTime();
-		my $dif = $time - $lastfire;
-		if ($dif > $ship->{rof}){
-			_generateBullet($ship->{pspeed},3);
-			_generateBullet($ship->{pspeed},4);
-		}
-	}
+	$tripleFlag = 1;
 	return 1;
+}
+
+sub _endtriplefire
+{
+	$tripleFlag = 0;
 }
 
 sub _newbomb
@@ -1371,13 +1376,13 @@ sub _incROF
 
 sub _doincROF
 {
-	if(@specialactive == 0){
+	#if(@specialactive == 0){
 		$ship->{rof} = $ship->{rof}/2;
 		$ship->{heat} = $ship->{heat}/3; #let them have fun
 		$cntl->itemconfigure('specialtext', -text=>'+ ROF');
 		return 1;
-	}
-	return 0;
+	#}
+	#return 0;
 }
 
 sub _endincROF
@@ -1401,7 +1406,7 @@ sub _ammoBox
 
 sub _doAmmo{
 	my $type = shift;
-	if(@specialactive == 0){
+	#if(@specialactive == 0){
 		$roundType = $type;
 		my $text;
 		$text = 'Tracking Rounds' if ($type eq 'TRK');
@@ -1412,8 +1417,8 @@ sub _doAmmo{
 		if ($type eq 'SEN') {$text = 'Sentry';$ship->{rof} = 2.5;$ship->{pspeed} = 2;}
 		$cntl->itemconfigure('specialtext', -text=>$text);
 		return 1;
-	}
-	return 0;
+	#}
+	#return 0;
 }
 
 
@@ -1553,35 +1558,35 @@ sub _getColour{
 }
 
 sub _doReverse{
-	return 0 if (@specialactive > 0);
+	#return 0 if (@specialactive > 0);
 	$ship->{turnrate} = $ship->{turnrate}*-1;
 	$cntl->itemconfigure('specialtext', -text=>'Reversed Controls');
 	return 1;
 }
 
 sub _doSlow{
-	return 0 if (@specialactive > 0);
+	#return 0 if (@specialactive > 0);
 	$ship->{mspeed} = $ship->{mspeed}/3;
 	$cntl->itemconfigure('specialtext', -text=>'Slow Speed');
 	return 1;
 }
 
 sub _doFast{
-	return 0 if (@specialactive > 0);
+	#return 0 if (@specialactive > 0);
 	$ship->{mspeed} += 7;
 	$cntl->itemconfigure('specialtext', -text=>'Hyper Speed');
 	return 1;
 }
 
 sub _doLoseGun{
-	return 0 if (@specialactive > 0);
+	#return 0 if (@specialactive > 0);
 	$fire = -1;
 	$cntl->itemconfigure('specialtext', -text=>'No Gun');
 	return 1;
 }
 
 sub _doTurnRate{
-	return 0 if (@specialactive > 0);
+	#return 0 if (@specialactive > 0);
 	$ship->{turnrate} -= 2;
 	$cntl->itemconfigure('specialtext', -text=>'Reduced Turn Rate');
 	return 1;
