@@ -90,7 +90,7 @@ sub setDimensions
 	my $width = shift;
 	my $height = shift;
 	my $depth = shift;
-	if ($width > 0 && $height > 0 && $depth > 0){
+	if ($width >= 0 && $height >= 0 && $depth >= 0){
 		$self->{MIN_EXTENT} = $width/2;
 		$self->{MIN_EXTENT} = $height if ($height/2 > $self->{MIN_EXTENT});
 		$self->{MIN_EXTENT} = $depth if ($depth/2 > $self->{MIN_EXTENT});

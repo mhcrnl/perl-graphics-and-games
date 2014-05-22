@@ -30,40 +30,32 @@ our $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource);
 
 my $sy = $screeny/20;
 my $sz = $screenz/20;
+my $sx = $screenx/20;
 my $rside; #build right wall
-foreach my $a (0..9){
-for (my $b = 20 ; $b-- ;){
-$rside = Cuboid->new();
-$rside->setDimensions(1,$sy,$sz);
-$tdc->registerObject($rside,\@focuspoint,'#9999FF',$screenx,$sy*$a,$sz*$b);
-}
-}
-for (my $a = 19 ; $a>9 ;$a--){
-for (my $b = 20 ; $b-- ;){
-$rside = Cuboid->new();
-$rside->setDimensions(1,$sy,$sz);
-$tdc->registerObject($rside,\@focuspoint,'#9999FF',$screenx,$sy*$a,$sz*$b);
-}
-}
-my $lside; #build left wall
-foreach my $a (0..9){
-for (my $b = 20 ; $b-- ;){
-$lside = Cuboid->new();
-$lside->setDimensions(1,$sy,$sz);
-$tdc->registerObject($lside,\@focuspoint,'#9999FF',0,$sy*$a,$sz*$b);
-}
-}
-for (my $a = 19 ; $a>9 ;$a--){
-for (my $b = 20 ; $b-- ;){
-$lside = Cuboid->new();
-$lside->setDimensions(1,$sy,$sz);
-$tdc->registerObject($lside,\@focuspoint,'#9999FF',0,$sy*$a,$sz*$b);
-}
+foreach my $a (0..19){
+	for (my $b = 20 ; $b-- ;){
+	$rside = Cuboid->new();
+	$rside->setDimensions(0,$sy,$sz);
+	$tdc->registerObject($rside,\@focuspoint,'#9999FF',$screenx,$sy*$a,$sz*$b);
+	}
 }
 
-my $top = Cuboid->new();
-$top->setDimensions($screenx,1,$screenz);
-$tdc->registerObject($top,\@focuspoint,'#99FF99',0,0,0);
+my $lside; #build left wall
+foreach my $a (0..19){
+	for (my $b = 20 ; $b-- ;){
+	$lside = Cuboid->new();
+	$lside->setDimensions(0,$sy,$sz);
+	$tdc->registerObject($lside,\@focuspoint,'#9999FF',0,$sy*$a,$sz*$b);
+	}
+}
+
+foreach my $a (0..19){
+	for (my $b = 20 ; $b-- ;){
+	my $top = Cuboid->new();
+	$top->setDimensions($sx,0,$sz);
+	$tdc->registerObject($top,\@focuspoint,'#99FF99',$sx*$a,0,$sz*$b);
+	}
+}
 
 
 my $shadow = CanvasObject->new();

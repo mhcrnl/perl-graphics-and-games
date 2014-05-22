@@ -14,8 +14,8 @@ my @lightsource = (225, 225, -100);
 $mw->update; #needed for $canvas->Height to work , could even put up a loading panel while the 3d stuff is underway
 my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource,0,1);
 
-my $obj = $tdc->registerObject($sphere,\@focuspoint,'#FF00FF',100,175,76,0,1);
-my $obj2 = $tdc->registerObject($sphere2,\@focuspoint,'#00FF00',30,0,76,0,0);
+my $obj = $tdc->registerObject($sphere,\@focuspoint,'#FF00FF',300,275,151,0,1);
+my $obj2 = $tdc->registerObject($sphere2,\@focuspoint,'#00FF00',230,100,151,0,0);
 
 #$tdc->rotate($obj,'y',45,45,1);
 

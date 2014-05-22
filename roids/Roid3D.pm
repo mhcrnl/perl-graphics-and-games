@@ -1,5 +1,5 @@
-package SphereAlt;
-use lib 'perllib';
+package Roid3D;
+use lib '../perllib';
 use GamesLib;
 use Math::Trig;
 use CanvasObject;
@@ -11,16 +11,16 @@ use Tk;
 
 sub new
 {
-
+	#basically a deformed sphere (based on sphereAlt)
 	my $self=CanvasObject->new;
 	shift;
 	my $sphereradius=shift;
-	#my $sphereradius=0;
+	my $angleProg=shift;
 	$sphereradius=100 if ($sphereradius==0);
 	my @vertexList;
 	my @facetVertices;
-	my $angleProg=10;
-
+	$angleProg=18 if ($angleProg==0);
+	my $ymodifier = int($sphereradius/8);
 	my @arc;
 	$points = (360/$angleProg);
 	$pointsarc = (180/$angleProg) ;
@@ -30,13 +30,14 @@ sub new
 		$circleRad=$circleRad*-1 if ($circleRad < 0);
 		
 		$y = cos(deg2rad(($i+1)*$angleProg))*$sphereradius;
-		#print "---------\n";
+		my $halfRadius = int($circleRad/2);
 		for (my $j = 0 ; $j < $points ; $j++){
-			my $x = $circleRad*sin(deg2rad($j*$angleProg));
-			my $z = $circleRad*cos(deg2rad($j*$angleProg));
+			my $modifiedRadius = $circleRad - $halfRadius + rand($halfRadius);
+			my $x = $modifiedRadius*sin(deg2rad($j*$angleProg));
+			my $z = $modifiedRadius*cos(deg2rad($j*$angleProg));
 			my $arrayadr = ($i*$points)+$j;
-			$vertexList[$arrayadr] = [$x,$y,$z];
-			#print "$arrayadr\n";
+			my $ymod = $y - $ymodifier + int(rand($ymodifier));
+			$vertexList[$arrayadr] = [$x,$ymod,$z];
 		}
 		
 	}
@@ -68,7 +69,6 @@ sub new
 	
 	for (my $i = 0 ; $i < $points ; $i++){
 		my $addr = scalar @vertexList -2;
-		print "$addr\n";
 		my $j = $i+1;
 		$j = 0 if ($i==$points-1);
 		push(@facetVertices,[$addr,$i,$j,$idno]);
@@ -83,6 +83,12 @@ sub new
 	$self->{VERTEXLIST}=\@vertexList;
 	$self->{FACETVERTICES}=\@facetVertices;
 	$self->{RADIUS}=$sphereradius;
+	$self->{SORT}=1;
+	my $t = int(rand(180));
+	$self->rotate('x', $t);
+	$t = int(rand(180));
+	$self->rotate('y', $t);
+
 	bless $self;
 	return $self;
 	
@@ -94,33 +100,3 @@ sub getCentre
 	my @centre = @{${$self->{VERTEXLIST}}[scalar @{$self->{VERTEXLIST}} - 1]};
 	return \@centre;
 }
-
-
-sub vertexNormal
-{
-	#easy to work out in a sphere, it is the vector sphere centre to point
-	my $self=shift;
-	my $vertexNo = shift;
-	my $centre = $self->getCentre();
-	my @vertex = @{${$self->{VERTEXLIST}}[$vertexNo]};
-	
-	my @vertNormal = ($vertex[0] - $$centre[0],$vertex[1] - $$centre[1],$vertex[2] - $$centre[2]);
-	
-	_normalise(\@vertNormal);
-	
-	return \@vertNormal;
-
-}
-
-sub pointInsideObject
-{
-	#quite easy just have to be within the radius
-	my $self = shift;
-	my $point = shift;
-	my $centre = $self->getCentre();
-	return 1 if (distanceBetween($point,$centre) <= $self->{RADIUS});
-	
-	return 0;
-}
-
-return 1;
