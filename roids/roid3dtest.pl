@@ -6,16 +6,22 @@ use Tk;
 my $mw = MainWindow->new();
 my $cnv = $mw->Canvas(-width=>400, -height=>400)->pack();
 my @focuspoint = (0); #length less than 3 should use default
-my $roid = Roid3D->new(60, 30);
+
 my @lightsource = (225, 225, -100);
 $mw->update; #needed for $canvas->Height to work , could even put up a loading panel while the 3d stuff is underway
 my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource,0,0);
 
-my $obj = $tdc->registerObject($roid,\@focuspoint,'#DDDDDD',200,200,100);
+my $roid = Roid3D->new(2, 2, \$tdc,1);
+$roid->{ID} = $tdc->registerObject($roid,\@focuspoint,'#AAAAAA',200,200,80);
 
-$tdc->rotate($obj,'y',1,360);
-$tdc->rotate($obj,'x',1,360);
-$tdc->rotate($obj,'z',1,360);
+my $cnt = 0;
+while ($cnt < 100)
+{
+	select (undef, undef, undef, 0.05);
+	$roid->update();
+	$tdc->_updateAll();
+	$cnt++;
+}
 
 
 MainLoop;
