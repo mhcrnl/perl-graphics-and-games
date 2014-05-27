@@ -37,7 +37,7 @@ sub split
 	return ($self->{X}, $self->{Y}, $size, $mx, $my);
 }
 
-sub draw
+sub update
 {
 	my $self=shift;
 	my $cnv=${$self->{CNV}};

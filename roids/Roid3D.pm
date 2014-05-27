@@ -144,7 +144,16 @@ sub split
 sub delete
 {
 	my $self = shift;
-	$tdc->removeObject($self->{ID});
+	${$self->{TDC}}->removeObject($self->{ID});
+}
+
+sub getBoundingBox
+{
+	my $self = shift;
+	my $r = $self->{RADIUS};
+	my $centre = $self->getCentre();
+	
+	return ($$centre[0]-$r, $$centre[1]-$r, $$centre[0]+$r, $$centre[1]+$r);
 }
 
 sub update

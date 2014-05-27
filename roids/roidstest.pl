@@ -35,6 +35,7 @@ our $mw;
 our $cnv;
 our $cframe;
 
+our $generate3Droids = 0; #will have slow downs if true
 our $level = 1;
 our $maxlevel = 8;
 our $heat;
@@ -663,7 +664,6 @@ sub _handleRoids
 		if ($roids{$_}->offScreen($cx,$cy)){
 			removeRoid($_);
 		}else{
-			#$roids{$_}->draw();
 			$roids{$_}->update();
 			_checkBombCollision($_,'blastwave') if($bomb == 1);
 			_checkBombCollision($_,'shockwave') if($shockwave && $shockwave>0); 
@@ -1003,7 +1003,7 @@ sub _checkBulletCollision
 {
 	my $obj = shift;
 	#my @tags = $cnv->find('overlapping', $obj->{X}-1, $obj->{Y}-1, $obj->{X}+1, $obj->{Y}+1); 
- 	my @tags;
+ 	my @ids; # ID numbers of polygons on screen
  	#some bullet travel distances may be to long and skip the would be impacted object, check small chunks along bullet line
  	#	my $addx = $obj->{ADDX}/3;
  	#	my $addy = $obj->{ADDY}/3;
@@ -1013,7 +1013,7 @@ sub _checkBulletCollision
  	}
  	elsif ($obj->{ROUND}  eq 'BEAM'){
  		#beam weapon
-		_checkBeamRound($obj,\@tags); 		
+		_checkBeamRound($obj,\@ids); 		
 		 		
  	}else{
  	 	#some bullet travel distances may be to long and skip the would be impacted object, check small chunks along bullet line
@@ -1023,16 +1023,15 @@ sub _checkBulletCollision
  			my @temp = $cnv->find('overlapping', $obj->{X}-($addx*$i), $obj->{Y}-($addy*$i), $obj->{X}-($addx*$i), $obj->{Y}-($addy*$i));
  			if (@temp > 0){
  				#splice (@tags,@tags,0,@temp); 
- 				push (@tags,@temp); 
+ 				push (@ids,@temp); 
  				$i=0;
  			}
  		}
  	}
 	my $ret = 0;
 	my $prev = -1;
-	@tags = sort @tags;
-	foreach my $t (@tags){
-		#tagging changed for 3d roids - need to update
+	@ids = sort @ids;
+	foreach my $t (@ids){
 		next if ($t == $prev || $t == 1);
 		$prev = $t;
 		if (defined($alien) && $t == $alien->{ID}){
@@ -1053,9 +1052,6 @@ sub _checkBulletCollision
 			$ret = 1;
 			last if ($obj->removeAfterHit() == 1);
 		}elsif (defined($spacewhale) && $spacewhale->{STATE} == 1 && (scalar grep{$_==$t}@{$tdc->getItemIds($spacewhale->{ID})}) > 0){
-			#my $ids = $tdc->getItemIds($spacewhale->{ID});
-			#my @temp = grep{$_==$t}@$ids;
-			#if (scalar @temp > 0){
 				#you killed the whale! arrrrgh!
 				#badness will happen here! - will bring in a drone
 				#could do with a whale sound
@@ -1065,10 +1061,25 @@ sub _checkBulletCollision
 				_newbloom($spacewhale, 'red',10);
 				$spacewhale=undef;
 				last if ($obj->removeAfterHit() == 1);
-			#}
 		}
-		elsif ($roids{$t}){
-			if ($roids{$t}->{SHADE} eq 'black'){
+		else
+		{
+			$ret = ($generate3Droids) ? _checkBulletCollision3D($obj, $t) : _checkBulletCollision2D($obj, $t);
+			last if ($obj->removeAfterHit() == 1);
+		}
+	}
+	return $ret;
+}
+
+sub _checkBulletCollision3D
+{
+	my $obj = shift;
+	my $t = shift;
+	my $tag = ${$cnv->itemcget($t, -tags)}[0];
+	my $ret = 0;
+	if ($tag =~ m/roid:(\d+)/ && $roids{$1}){
+			$t = $1;
+			if ($roids{$t}->{SHADE} eq '#999999'){ #should use a proper marker
 				#darkroid
 				$ret = 1;
 				$roids{$t}->{HP}-=1;
@@ -1082,18 +1093,7 @@ sub _checkBulletCollision
 				}
 			}else{
 			#if ($roids{$t}->{SIZE} > 1){
-				#split into 2 smaller ones and modify trajectories - removedfor 3d roid testing
-				
-				#my ($argx, $argy,$size, $movex, $movey) = $roids{$t}->split();
-				#my $r1 = Roid->new($argx, $argy, $size, $movex, $movey, 1, '#AAAAAA', \$cnv);
-				#($argx, $argy,$size, $movex, $movey) = $roids{$t}->split();
-				#my $r2 = Roid->new($argx, $argy, $size, $movex, $movey, 1, '#AAAAAA', \$cnv);
-				
-				#$r1->draw();
-				#$roids{$r1->{ID}} = $r1;
-				#$r2->draw();
-				#$roids{$r2->{ID}} = $r2;
-				#$score+=(1*$level);
+
 			#}else{
 				$score+=(2*$level);
 				_newbloom($roids{$t}, 'white',2);
@@ -1102,9 +1102,51 @@ sub _checkBulletCollision
 			$sound->play('hit1');
 			removeRoid($t);
 			}
-			last if ($obj->removeAfterHit() == 1);
 		}
-	}
+		return $ret;
+}
+
+sub _checkBulletCollision2D
+{
+	my $obj = shift;
+	my $t = shift;
+	my $ret = 0;
+	if ($roids{$t}){
+			if ($roids{$t}->{SHADE} eq 'black'){
+				#darkroid
+				$ret = 1;
+				$roids{$t}->{HP}-=1;
+				if ($roids{$t}->{HP} == 0){
+					$score+=(10*$level);
+					$sound->play('hit1');
+					_newbloom($roids{$t}, 'white',2);
+					removeRoid($t);
+				}else{
+					$sound->play('hit2') if ($obj->{ROUND} ne 'BEAM'); #beam will destroy in one hit usually, don't bother playing this sound
+				}
+			}else{
+			if ($roids{$t}->{SIZE} > 1){
+				#split into 2 smaller ones and modify trajectories
+				
+				my ($argx, $argy,$size, $movex, $movey) = $roids{$t}->split();
+				my $r1 = Roid->new($argx, $argy, $size, $movex, $movey, 1, '#AAAAAA', \$cnv);
+				($argx, $argy,$size, $movex, $movey) = $roids{$t}->split();
+				my $r2 = Roid->new($argx, $argy, $size, $movex, $movey, 1, '#AAAAAA', \$cnv);
+				
+				$r1->update();
+				$roids{$r1->{ID}} = $r1;
+				$r2->update();
+				$roids{$r2->{ID}} = $r2;
+				$score+=(1*$level);
+			}else{
+				$score+=(2*$level);
+				_newbloom($roids{$t}, 'white',2);
+			}
+			$ret=1;
+			$sound->play('hit1');
+			removeRoid($t);
+			}
+		}
 	return $ret;
 }
 
@@ -1240,17 +1282,25 @@ sub _generateRoid
 	my $darkroid = int(rand(100))%15;
 	my $largeroid = int(rand(100))%17;
 	my $r;
-	if ($darkroid == 0){
-		#$r = Roid->new($argx, $argy, 2, $movex, $movey, 7, 'black', \$cnv);
-		$r = Roid3D->new($movex, $movey, \$tdc, 2, 7, 'roid');
-		$r->{ID} = $tdc->registerObject($r,\@focuspoint,'#AAAAAA',$argx, $argy,80);
-	}else{
-		my $size = 2;
-		$size = 4 if ($largeroid == 0);
-		$r = Roid3D->new($movex, $movey, \$tdc, $size, 1, 'roid');
-		$r->{ID} = $tdc->registerObject($r,\@focuspoint,'#FFFFFF',$argx, $argy,80);
+	my $size = 2;
+	my $hp = 1;
+	my $colour = "#DDDDDD";
+	$size = 4 if ($largeroid == 0 && $darkroid > 0);
+	$hp = 7 if ($darkroid == 0);
+	$colour = 'black' if ($darkroid == 0 && $generate3Droids == 0);
+	$colour = '#999999' if ($darkroid == 0 && $generate3Droids);
+	$colour = '#FFFFFF' if ($darkroid > 0 && $generate3Droids);
+	if ($generate3Droids)
+	{
+		$r = Roid3D->new($movex, $movey, \$tdc, $size, $hp);
+		$r->{ID} = $tdc->registerObject($r,\@focuspoint,$colour,$argx, $argy,80,0,1);
+		$r->{TAG} = "roid:".$r->{ID};
 	}
-	$r->update();
+	else
+	{
+		$r = Roid->new($argx, $argy, $size, $movex, $movey, $hp, $colour, \$cnv);
+		$r->update;
+	}
 	$roids{$r->{ID}} = $r;
 }
 
