@@ -21,22 +21,6 @@ sub new
     	return $self;
 }
 
-
-sub split
-{
-	my $self=shift;
-	#my $radius = int($self->{RADIUS}/2);
-	my $size = int($self->{SIZE}/2);
-	my $rand = 50+int(rand(100)); 
-	my $mx = ($self->{MX}/100)*$rand; #new x vector between 50% and 150% of original
-	$mx = $mx*-1 if ($rand % 4 == 0); #25% change to reverse direction
-	$rand = 50+int(rand(100));
-	my $my = ($self->{MY}/100)*$rand;
-	$my = $my*-1 if ($rand % 4 == 0);
-	#return ($self->{X}, $self->{Y}, $radius, $mx, $my);
-	return ($self->{X}, $self->{Y}, $size, $mx, $my);
-}
-
 sub update
 {
 	my $self=shift;

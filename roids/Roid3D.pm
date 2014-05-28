@@ -7,7 +7,33 @@ use Tk;
 
 @ISA = qw(CanvasObject);
 
+=head1 NAME
 
+Roid3D - Data object for a 3D asteroid object
+
+=head1 SYNOPSIS
+
+TODO
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 METHODS
+
+The following methods (in addition to those provided by the
+superclass) are available:
+
+=over 5
+
+=item $roid3d->new($movex, $movey, $size, $hitpoints)
+
+Create a new 3D asteroid object, it will shift it's position by $movex and $movey with a random rotation every time update is called
+This basically builds a sphere and deforms it by altering the radius and y values by a random number for each point
+
+=cut
+
+my $vertexFacetMap;
 
 sub new
 {
@@ -17,10 +43,9 @@ sub new
 	
 	$self->{MX} = shift; #movement x
 	$self->{MY} = shift; #movement y
-	$self->{TDC} = shift; #reference to 3d handler
 	$self->{SIZE} = shift;
 	$self->{HP} = shift; # hit points
-	$self->{TAG} = shift;
+	$self->{TAG} = '';
 	$self->{DEAD} = 0;
 	$self->{ID} = 0;
 	$self->{SPINX} = 5 - rand(10);
@@ -109,10 +134,21 @@ sub new
 	$t = int(rand(180));
 	$self->rotate('y', $t);
 
+	if (! $vertexFacetMap){
+		#to be used in finding shared normals without re-searching the facetvertices array every time
+		$vertexFacetMap = $self->getVertexFacetMap(); 
+	}
+	
 	bless $self;
 	return $self;
 	
 }
+
+=item $roid3d->getCentre
+
+Returns reference to array defining the centre point of the object (x,y,z)
+
+=cut
 
 sub getCentre
 {
@@ -120,6 +156,12 @@ sub getCentre
 	my @centre = @{${$self->{VERTEXLIST}}[scalar @{$self->{VERTEXLIST}} - 1]};
 	return \@centre;
 }
+
+=item $roid3d->offScreen($xlimit, $ylimit)
+
+Returns true if no part of the object is visible any more based on the screen limits given
+
+=cut
 
 sub offScreen
 {
@@ -136,16 +178,11 @@ sub offScreen
 	return 0;
 }
 
-sub split
-{
-	#todo
-}
+=item $roid3d->getBoundingBox
 
-sub delete
-{
-	my $self = shift;
-	${$self->{TDC}}->removeObject($self->{ID});
-}
+Returns coordinates of a rectangle that fully encloses the asteroid object
+
+=cut
 
 sub getBoundingBox
 {
@@ -156,10 +193,36 @@ sub getBoundingBox
 	return ($$centre[0]-$r, $$centre[1]-$r, $$centre[0]+$r, $$centre[1]+$r);
 }
 
+=item $roid3d->update
+
+Move and rotate the asteroid as defined by the object's attributes
+
+=cut
+
 sub update
 {
 	my $self = shift;
-	${$self->{TDC}}->rotate($self->{ID}, 'x', $self->{SPINX}, $self->{SPINX},1);
-	${$self->{TDC}}->rotate($self->{ID}, 'y', $self->{SPINY}, $self->{SPINY},1);
-	${$self->{TDC}}->translate($self->{ID}, $self->{MX}, $self->{MY}, 0,1);
+	my $centre = $self->getCentre();
+	$self->translate(-$$centre[0], -$$centre[1], -$$centre[2]);
+	$self->rotate('x', $self->{SPINX});
+	$self->rotate('y', $self->{SPINY});
+	$self->translate($$centre[0]+$self->{MX}, $$centre[1]+$self->{MY}, $$centre[2],);
 }
+
+sub vertexNormal
+{
+	my $self = shift;
+	my $vertexNo = shift;
+	my $facetNo = shift;
+	if (! $vertexFacetMap){
+		$vertexFacetMap = $self->getVertexFacetMap(); 
+	}
+	
+	my $vertexNormal = $self->SUPER::vertexNormal($vertexNo, $facetNo, $$vertexFacetMap[$vertexNo]);
+	
+	return $vertexNormal;
+}
+
+1;
+
+=back

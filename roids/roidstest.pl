@@ -43,7 +43,6 @@ our @bullets;
 our $roundType;
 our %roids;
 keys(%roids) = 50;
-our $rotangle;
 our $go =0;
 our $score;
 our $lastfire;
@@ -62,7 +61,6 @@ our $conf=undef;
 our $crystal=-1;
 our $tdc=undef;
 our $spacewhale=undef;
-our $shipangle=0;
 our $adown = 0;
 our $ddown = 0;
 our @focuspoint = (int($cx/2),int($cy/2),1500);
@@ -221,9 +219,7 @@ sub _buildTopLevel
 	$cntl->createText(225, 33, -text=>'NORMAL', -anchor=>'w', -font=>'{Arial Bold} 10', -fill=>'white', -tags=>'specialtext');
 	$cntl->createText(350, 33, -text=>'0', -anchor=>'w', -font=>'{Arial Bold} 10', -fill=>'white', -tags=>'countdown');
 
-
 	_resetShip();
-	#_draw('ship',$ship);
 }
 
 sub dispInstructions
@@ -379,8 +375,6 @@ sub _resetShip
 	
 	$tdc->removeObject($ship->{ID}) if ($ship->{ID} > -1);
 	$ship->resetStats();
-	$rotangle = 0;
-	$ship->{thrust} = 0;
 	$score = 0;
 	$lastfire = 0;
 	$fire = 0;
@@ -394,14 +388,12 @@ sub _resetShip
 	$specialstarttime = 0;
 	$pausetime = 0;
 	$roundType = 'STD';
-	#$roundType = 5;
 	$roundType = 'BEAM' if ($ship->{guntype} == 2);
 	@bloom = ();
 	@exhaust = ();
 	$heat->reset();
 	$momx = 0;
 	$momy = 0;
-	$shipangle=0;
 	#$ship->delete('ship');
 	$ship->setDimensions($width, $height);
 	#$ship->translate(($cx/2)-($width/2),($cy/2)-($height/2),0);
@@ -462,17 +454,11 @@ sub go
 		_handlespecials();
 		_handleAlien() if ($coolingcycle%2 == 1); #less critical events every second cycle, hopefully aids performance
 		_fire() if ($fire == 1);
-		#_rotate('ship',$ship,$rotangle) if ($rotangle != 0);
+		my $rotangle = $ship->turn();
 		if ($rotangle != 0){
 			$tdc->rotate($ship->{ID},'z',$rotangle,$rotangle,1);
-			$shipangle+=$rotangle;
-			if ($shipangle > 360){
-				$shipangle-=360;
-			}
-			if ($shipangle < -360){
-				$shipangle+=360;
-			}
 		}
+		_bank();
 		_handleMovement(); 
 		_handleBomb() if ($bomb == 1);
 		_handleBullets();
@@ -638,8 +624,6 @@ sub _handleMovement
 			$$centre[1]+$addy >= 0 &&
 			$$centre[1]+$addy <= $cy){
 		
-			#$ship->translate($addx, $addy, 0);
-			#_draw('ship',$ship);
 			$tdc->translate($ship->{ID},$addx, $addy,0,1);
 		}
 	}
@@ -789,9 +773,8 @@ sub clear
 	$_=undef foreach(@bullets);
 	@bullets=();
 	foreach(keys %roids){
-		$roids{$_}->delete();
-		$roids{$_}=undef;
-		delete $roids{$_};
+		removeRoid($_);
+
 	}
 	if ($fullReload == 1){
 		print "reloading...\n";
@@ -1084,7 +1067,7 @@ sub _checkBulletCollision3D
 				$ret = 1;
 				$roids{$t}->{HP}-=1;
 				if ($roids{$t}->{HP} == 0){
-					$score+=(10*$level);
+					$score+=(15*$level);
 					$sound->play('hit1');
 					_newbloom($roids{$t}, 'white',2);
 					removeRoid($t);
@@ -1092,12 +1075,15 @@ sub _checkBulletCollision3D
 					$sound->play('hit2') if ($obj->{ROUND} ne 'BEAM'); #beam will destroy in one hit usually, don't bother playing this sound
 				}
 			}else{
-			#if ($roids{$t}->{SIZE} > 1){
-
-			#}else{
+			if ($roids{$t}->{SIZE} > 1){
+				my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
+				my $r = Roid3D->new($movex, $movey,  $size, 1);
+				$r->{ID} = $tdc->registerObject($r,\@focuspoint,$roids{$t}->{SHADE},$argx, $argy,80,0,1);
+				$r->{TAG} = "roid:".$r->{ID};
+			}else{
 				$score+=(2*$level);
 				_newbloom($roids{$t}, 'white',2);
-			#}
+			}
 			$ret=1;
 			$sound->play('hit1');
 			removeRoid($t);
@@ -1117,7 +1103,7 @@ sub _checkBulletCollision2D
 				$ret = 1;
 				$roids{$t}->{HP}-=1;
 				if ($roids{$t}->{HP} == 0){
-					$score+=(10*$level);
+					$score+=(15*$level);
 					$sound->play('hit1');
 					_newbloom($roids{$t}, 'white',2);
 					removeRoid($t);
@@ -1128,15 +1114,14 @@ sub _checkBulletCollision2D
 			if ($roids{$t}->{SIZE} > 1){
 				#split into 2 smaller ones and modify trajectories
 				
-				my ($argx, $argy,$size, $movex, $movey) = $roids{$t}->split();
-				my $r1 = Roid->new($argx, $argy, $size, $movex, $movey, 1, '#AAAAAA', \$cnv);
-				($argx, $argy,$size, $movex, $movey) = $roids{$t}->split();
-				my $r2 = Roid->new($argx, $argy, $size, $movex, $movey, 1, '#AAAAAA', \$cnv);
-				
-				$r1->update();
-				$roids{$r1->{ID}} = $r1;
-				$r2->update();
-				$roids{$r2->{ID}} = $r2;
+				foreach(0..1)
+				{
+					my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
+					my $r = Roid->new($argx, $argy, $size, $movex, $movey, 1, $roids{$t}->{SHADE}, \$cnv);
+					
+					$r->update();
+					$roids{$r->{ID}} = $r;
+				}
 				$score+=(1*$level);
 			}else{
 				$score+=(2*$level);
@@ -1148,6 +1133,20 @@ sub _checkBulletCollision2D
 			}
 		}
 	return $ret;
+}
+
+sub _splitRoid
+{
+	my $obj = shift;
+	my $size = int($obj->{SIZE}/2);
+	my $rand = 50+int(rand(100)); 
+	my $mx = ($obj->{MX}/100)*$rand; #new x vector between 50% and 150% of original
+	$mx = $mx*-1 if ($rand % 4 == 0); #25% change to reverse direction
+	$rand = 50+int(rand(100));
+	my $my = ($obj->{MY}/100)*$rand;
+	$my = $my*-1 if ($rand % 4 == 0);
+	return ($obj->{X}, $obj->{Y}, $size, $mx, $my);
+
 }
 
 
@@ -1249,16 +1248,18 @@ sub _checkObjectAcrossLine
 sub removeRoid
 {
 	my $key = shift;
-	$roids{$key}->delete;
+	if ($generate3Droids){
+		$tdc->removeObject($roids{$key}->{ID});
+	}else{
+		$roids{$key}->delete;
+	}
 	$roids{$key}=undef;
 	delete $roids{$key};
 }
 
 sub _generateRoid
 {
-	my @temp = keys(%roids);
-	my $cnt = @temp;
-	return if ($cnt > ($cx*$cy) / 30000); #should maintain same roid density across different sized screens
+	return if (scalar keys(%roids) > ($cx*$cy) / 30000); #should maintain same roid density across different sized screens
 	my $a = int(rand(100)) % 2;
 	my $argx = 0;
 	my $argy = 0;
@@ -1292,7 +1293,7 @@ sub _generateRoid
 	$colour = '#FFFFFF' if ($darkroid > 0 && $generate3Droids);
 	if ($generate3Droids)
 	{
-		$r = Roid3D->new($movex, $movey, \$tdc, $size, $hp);
+		$r = Roid3D->new($movex, $movey, $size, $hp);
 		$r->{ID} = $tdc->registerObject($r,\@focuspoint,$colour,$argx, $argy,80,0,1);
 		$r->{TAG} = "roid:".$r->{ID};
 	}
@@ -1556,7 +1557,7 @@ sub _doBlinky
 					$crystal = int(rand($goodspecials - 1.01)); #don't include last special element, is another blinky 
 					#print "Crytsal: $crystal\n";
 					#will need to update a marker
-					my $c = _getColour($crystal);
+					my $c = _getCrystalColour($crystal);
 					$cframe->configure(-background=>$c);
 				}elsif ($p eq "Hit Gate"){
 					#activate bad special
@@ -1601,7 +1602,7 @@ sub _doBlinky
 	#go(); # see stop
 }
 
-sub _getColour{
+sub _getCrystalColour{
 	my $no = shift;
 	return 'yellow' if ($no == 0);
 	return 'red' if ($no == 1);
@@ -1775,8 +1776,8 @@ sub dkeydown
 {
 	if ($adown==0){
 	$ddown = 1;
-	_bank(-30) if ($rotangle == 0);
-	$rotangle = $ship->{turnrate}; 
+	$ship->{targetbanking} = -30;
+	$ship->{turning} = 1;
 	}
 }
 
@@ -1784,8 +1785,8 @@ sub dkeyup
 {
 	if ($ddown==1){
 	$ddown = 0;
-	_bank(30);
-	$rotangle = 0;
+	$ship->{targetbanking} = 0;
+	$ship->{turning} = 0;
 	}
 }
 
@@ -1793,8 +1794,8 @@ sub akeydown
 {	
 	if ($ddown==0){
 	$adown = 1;
-	_bank(30) if ($rotangle == 0);
-	$rotangle = -($ship->{turnrate}) ;
+	$ship->{targetbanking} = 30;
+	$ship->{turning} = -1;
 	}
 }
 
@@ -1802,18 +1803,24 @@ sub akeyup
 {
 	if ($adown==1){
 	$adown=0;
-	_bank(-30);
-	$rotangle = 0;
+	$ship->{targetbanking} = 0;
+	$ship->{turning} = 0;
 	}
 }
 
 sub _bank
 {
-	my $bankangle = shift; 
-	#hopefully gives some impression of banking - though this switch to 30 degree banking isn't gradual, it is instant
-	$tdc->rotate($ship->{ID},'z',-$shipangle,-$shipangle,1) if ($shipangle != 0);
+	#hopefully gives some impression of banking in a turn
+	return if ($ship->{currentbanking} == $ship->{targetbanking});
+	
+	my $bankangle = 2;
+	$bankangle = -2 if ($ship->{currentbanking} > $ship->{targetbanking}); 
+	
+	$ship->{currentbanking} += $bankangle;
+	
+	$tdc->rotate($ship->{ID},'z',-$ship->{shipangle},-$ship->{shipangle},1) if ($ship->{shipangle} != 0);
 	$tdc->rotate($ship->{ID},'y',$bankangle,$bankangle,1);
-	$tdc->rotate($ship->{ID},'z',$shipangle,$shipangle,1) if ($shipangle != 0);
+	$tdc->rotate($ship->{ID},'z',$ship->{shipangle},$ship->{shipangle},1) if ($ship->{shipangle} != 0);
 }
 
 sub wkeydown

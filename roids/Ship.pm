@@ -33,6 +33,10 @@ sub new
 	$self->{shield} = $self->{baseshield};
 	$self->{guntype} = $self->{baseguntype};
 	$self->{turnrate} = 3;
+	$self->{turning} = 0;
+	$self->{shipangle} = 0; #angle away from pointing up
+	$self->{targetbanking} = 0;
+	$self->{currentbanking} = 0;
 	$self->{bomb} = 2;
 	$self->{thrust} = 0;
 	$self->{ID} = -1;
@@ -83,6 +87,21 @@ sub setStats
 	resetStats($self);
 }
 
+sub turn
+{
+	my $self = shift;
+	return 0 if ($self->{turning} == 0);
+	my $rotangle = $self->{turning} * $self->{turnrate};
+	$self->{shipangle}+=$rotangle;
+			if ($self->{shipangle} > 360){
+				$self->{shipangle}-=360;
+			}
+			elsif ($self->{shipangle} < -360){
+				$self->{shipangle}+=360;
+			}
+	return $self->{turning} * $self->{turnrate};
+}
+
 sub resetStats
 {
 	my $self = shift;
@@ -91,6 +110,10 @@ sub resetStats
 			$self->{$1} = $self->{$k};
 		}
 	}
+	$self->{turning} = 0;
+	$self->{shipangle} = 0;
+	$self->{currentbanking} = 0;
+	$self->{thrust} = 0;
 }
 
 sub getBoundingBox
@@ -291,7 +314,7 @@ sub checkCollision
 	my $collision = 0;
 	my $length = 0;
 	
-	my @outline = (0,1,0,5,2,1,2,5);
+	my @outline = (0,1,0,5,2,1,2,5); #needs something better
 	
 	for (my $i = 0; $i < @outline ; $i+=2){
 	
