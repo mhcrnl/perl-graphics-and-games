@@ -35,7 +35,7 @@ our $mw;
 our $cnv;
 our $cframe;
 
-our $generate3Droids = 0; #will have slow downs if true
+our $generate3Droids = 1; #will have slow downs if true
 our $level = 1;
 our $maxlevel = 8;
 our $heat;
@@ -1076,10 +1076,14 @@ sub _checkBulletCollision3D
 				}
 			}else{
 			if ($roids{$t}->{SIZE} > 1){
-				my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
-				my $r = Roid3D->new($movex, $movey,  $size, 1);
-				$r->{ID} = $tdc->registerObject($r,\@focuspoint,$roids{$t}->{SHADE},$argx, $argy,80,0,1);
-				$r->{TAG} = "roid:".$r->{ID};
+				foreach(0..1)
+				{
+					my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
+					my $r = Roid3D->new($movex, $movey,  $size, 1);
+					$r->{ID} = $tdc->registerObject($r,\@focuspoint,$roids{$t}->{SHADE},$argx, $argy,80,0,1);
+					$r->{TAG} = "roid:".$r->{ID};
+					$roids{$r->{ID}} = $r;
+				}
 			}else{
 				$score+=(2*$level);
 				_newbloom($roids{$t}, 'white',2);
@@ -1145,7 +1149,8 @@ sub _splitRoid
 	$rand = 50+int(rand(100));
 	my $my = ($obj->{MY}/100)*$rand;
 	$my = $my*-1 if ($rand % 4 == 0);
-	return ($obj->{X}, $obj->{Y}, $size, $mx, $my);
+	my $centre = $obj->getCentre;
+	return ($$centre[0], $$centre[1], $size, $mx, $my);
 
 }
 

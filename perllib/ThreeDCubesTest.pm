@@ -56,7 +56,7 @@ sub new{
     	$self->{ZBUF} = 0;
     	$self->{BUFREADY}=0;
     	$self->{DOSHADOW}=0;
-		$self->{BASE_INTENSITY}=0.1;
+		$self->{BASE_INTENSITY}=0.15;
 		bless $self;
 	return $self;
 
@@ -968,12 +968,11 @@ sub _buildZBuffer #called per facet
 	$maxy=$dispHeight if ($maxy > $dispHeight);
 	    		
  	#get the colour at each corner of triangle
-    my @colourdec;
     my @percentColour;
     	 
 	for (0..2){
 		my $vertNormal = $self->{SHAPES}[$obj]->vertexNormal($$facetVertices[$facetNo][$_], $facetNo);
-    	($colourdec[$_],$percentColour[$_]) = _getColourIntensity($self,$obj,$vertNormal,$mpt[$_]);
+    	$percentColour[$_] = _getColourIntensity($self,$obj,$vertNormal,$mpt[$_]);
     }
 
     	 
@@ -1052,14 +1051,13 @@ sub _buildZBuffer #called per facet
 		}
 
 		
-		my $difColour = $pointInt[1] - $pointInt[0];
-		   	 			
+		my $difColour = $pointInt[1] - $pointInt[0];  	 			
 		for(my $i = 0 ; $i < @yToProcess ; $i++){
 			my $y = $yToProcess[$i][0];
 			my $z = $yToProcess[$i][1];
 			#interpolate colour for each pixel on scanline
 
-
+		
 			my $percentDistCovered = ($y-int($yVals[0]+0.5)) / $lineLen;
 			my $colourIntAtThisPoint = $pointInt[0]+($difColour*$percentDistCovered);
 			$colourIntAtThisPoint = 1 if ($colourIntAtThisPoint > 1);
@@ -1070,12 +1068,14 @@ sub _buildZBuffer #called per facet
 				}
 			}
 	
-			my $colour = _getColourString($colourIntAtThisPoint*255,$basecolour,$colourIntAtThisPoint,$self,$obj);
+			my $colour = _getColourString($basecolour,$colourIntAtThisPoint,$self,$obj);
+			#facet edges sometimes seem to be a lighter colour (highlighted) than I would expect, can't find a reason for it though in the data generated here
+
 			#write pixel details to zbuffer 
 			
 			#$zbuf->{"$x"."_$y"."z"}=$z;	
 			#$zbuf->{"$x"."_$y"."c"}=$colour;
-			
+
 			if ($zbuf->{$x}){
 				if (! $zbuf->{$x}->{$y}){
 					my %tempbufzc :shared;
@@ -1372,14 +1372,11 @@ sub _checkBackFace
 	my $obj = shift;
 	my $centre = shift;
 	my $shade = shift;
-	my $numberonly = shift;
 	
 	my @normal = _getNormal($a,$b,$c);
-	my ($colourdec,$percent) = _getColourIntensity($self,$obj,\@normal,$centre);
+	my $percent = _getColourIntensity($self,$obj,\@normal,$centre);	
 	
-	return ($colourdec,$percent) if ($numberonly);
-	
-	return _getColourString($colourdec,$shade,$percent,$self,$obj);
+	return _getColourString($shade,$percent,$self,$obj);
  }
  sub _getColourIntensity
  {
@@ -1407,7 +1404,6 @@ sub _checkBackFace
  	
 	my $deg;
 	my $percent = 0;
-  	my $colourdec = 90;
 
   	#answer above 0 faces away from light (vectors heading in same direction in z plane)
 	if ($answer < 0){
@@ -1416,25 +1412,25 @@ sub _checkBackFace
  		#at 180 degrees face is directly facing light source
  		#anything below 90 is out of the light (and $answer would have been positive)
  		$percent = ($deg-90)/90;
-  		$colourdec = int(90+(165*$percent));
  
   	}
-  	return ($colourdec,$percent);
+  	return $percent;
   	
   }
   
   sub _getColourString
   {
-  	my $colourdec = shift;
   	my $shade = shift;
   	my $percent=shift;
   	my $self = shift;
 	my $obj = shift;
 
+	$percent = $self->{BASE_INTENSITY} if ($percent < $self->{BASE_INTENSITY});
+	
   	if (! $shade){
 		$shade =  $self->{SHAPES}[$obj]->{SHADE};
   	}
-  	my $colourhex = dec2hex($colourdec);
+  	my $colourhex = dec2hex($percent*255);
 
   	my $colour = "#".$colourhex."2222";
   	if ($shade eq 'green'){
@@ -1455,7 +1451,6 @@ sub _checkBackFace
   	 elsif ($shade eq 'cyan'){
 			$colour = "#22".$colourhex.$colourhex;
   	}elsif ($shade =~ m/^\#(.{2})(.{2})(.{2})$/){
-  		$percent = $self->{BASE_INTENSITY} if ($percent < $self->{BASE_INTENSITY});
   		my $r = int(hex($1)*$percent);
   		my $g = int(hex($2)*$percent);
   		my $b = int(hex($3)*$percent);
