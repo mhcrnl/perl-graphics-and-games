@@ -92,7 +92,9 @@ sub getBoundingBox{
 sub getCentre{
 	my $self = shift;
 	
-	return ($self->{X}+(15*$self->{SIZE}),$self->{Y}+(15*$self->{SIZE}));
+	my @centre = ($self->{X}+(15*$self->{SIZE}),$self->{Y}+(15*$self->{SIZE}));
+	
+	return \@centre;
 
 }
 

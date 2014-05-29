@@ -37,9 +37,9 @@ sub _alterTrajectory{
 
 	return if ($self->{TRACKING} == 0 || ! defined($self->{TRACKING}) || (defined($self->{TRACKING}) && $self->{TRACKING}->{DEAD}==1));
 	
-	my ($rx,$ry) = $self->{TRACKING}->getCentre();
+	my $centre = $self->{TRACKING}->getCentre();
 
-	my ($addx, $addy) = getLine($self->{LENGTH}, $rx, $ry, $self->{X}, $self->{Y});
+	my ($addx, $addy) = getLine($self->{LENGTH}, $$centre[0], $$centre[1], $self->{X}, $self->{Y});
 	
 	#trying to get a nice curve
 	

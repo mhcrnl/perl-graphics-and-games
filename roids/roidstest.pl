@@ -35,7 +35,8 @@ our $mw;
 our $cnv;
 our $cframe;
 
-our $generate3Droids = 1; #will have slow downs if true
+our $generate3Droids = 0; #will have slow downs if true
+our $tickTime = 1/40; #40 ticks per second
 our $level = 1;
 our $maxlevel = 8;
 our $heat;
@@ -73,27 +74,27 @@ our @focuspoint = (int($cx/2),int($cy/2),1500);
 	our $sound = SoundServer->new(11);
 	our $music = Music->new();
 
-	our @specials; #might add the actions to the Special object
+	our @specials; #might add the actions to the Special object and handle differently
 	
-	$specials[0] = [\&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire];
-	$specials[1] = [\&_newbomb,sub{},\&_collectbomb,sub{}];
-	$specials[2] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln];
+	$specials[0] = [\&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire, "TRIPLE FIRE"];
+	$specials[1] = [\&_newbomb,sub{},\&_collectbomb,sub{}, "BOMB"];
+	$specials[2] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln, "INVULNERABLE"];
 	our $stackablespecials = scalar @specials;
-	$specials[3] = [\&_incROF,sub{},\&_doincROF,\&_endincROF];
-	$specials[4] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds];
-	$specials[5] = [sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds];
-	$specials[6] = [sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds];
-	$specials[7] = [sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds];
-	$specials[8] = [sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds];
-	$specials[9] = [sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds];
-	$specials[10] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{}]; #this one must be last of the good specials
+	$specials[3] = [\&_incROF,sub{},\&_doincROF,\&_endincROF, "+ ROF"];
+	$specials[4] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds, "TRACKING ROUNDS"];
+	$specials[5] = [sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds, "EXPLOSIVE ROUNDS"];
+	$specials[6] = [sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds, "LASER"];
+	$specials[7] = [sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds, "SHOCKWAVE"];
+	$specials[8] = [sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds, "PIERCING ROUNDS"];
+	$specials[9] = [sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds, "SENTRY"];
+	$specials[10] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{},""]; #this one must be last of the good specials
 	our $goodspecials = scalar @specials;
 	#bad specials - e.g. missile hits
-	$specials[11] = [sub{}, sub{},\&_doReverse,\&_endReverse];
-	$specials[12] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod];
-	$specials[13] = [sub{}, sub{},\&_doFast,\&_endSpeedMod];
-	$specials[14] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun];
-	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate];
+	$specials[11] = [sub{}, sub{},\&_doReverse,\&_endReverse, "Reversed Controls"];
+	$specials[12] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod, "Slow Speed"];
+	$specials[13] = [sub{}, sub{},\&_doFast,\&_endSpeedMod, "Hyper Speed"];
+	$specials[14] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun, "No Gun"];
+	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "Reduced Turn Rate"];
 	
 	
 	our $specialavailable;
@@ -430,7 +431,7 @@ sub go
 	my $coolingcycle = 0;
 	my $nextroid = 1;
 	while ($go == 1){
-
+		$lastfire++;
 		my $then = getTime();
 		$coolingcycle++;
 		if ($coolingcycle == 20){
@@ -471,7 +472,7 @@ sub go
 		$tdc->_updateAll(); #will do $mw->update in here anyway
 		_breakship() if ($go == 2);
 		my $now = getTime();
-		my $tdif = 0.02 - ($now-$then);
+		my $tdif = $tickTime - ($now-$then);
 		my $wait = sprintf "%.3f", $tdif;
 		if ($wait > 0){
 			select (undef, undef, undef, $wait);
@@ -704,7 +705,7 @@ sub _handlespecials
 			{
 				$specialavailable = int(rand($goodspecials-0.01));
 			}
-			#$specialavailable = 9;
+			#$specialavailable = 4;
 			$specialstarttime = time();
 			&{$specials[$specialavailable][0]};
 		}
@@ -718,6 +719,7 @@ sub _handlespecials
 	
 	if (@specialactive > 0)
 	{
+		$cntl->itemconfigure('specialtext', -text=>$specialactive[0]->{LABEL});
 		$cntl->itemconfigure('countdown', -text=>$specialactive[0]->timeLeft());
 	}
 	else
@@ -733,7 +735,7 @@ sub _handlespecials
 		my $del = 0;
 		foreach my $id (@obj){
 			if (${$cnv->itemcget($id, -tags)}[0] eq $ship->{TAG} && $del == 0){
-				my $active = Special->new($specialavailable, time());
+				my $active = Special->new($specialavailable, time(), $specials[$specialavailable][4]);
 				@specialactive = grep{$_->{ID} != $specialavailable} @specialactive; #drop existing specials that are the same
 				&{$specials[$specialavailable][2]};
 				push (@specialactive, $active);
@@ -890,14 +892,15 @@ sub _processEffect
 		{
 			$_->{STARTTIME}-=20;
 		}
+		$specialavailable = -1;
 		_handlespecials();
 	}
 	#replace with the bad special
 	$cnv->delete('special'); #remove any special icon on screen
 	$specialstarttime = time();
-	$specialavailable = $goodspecials + $effect - 1;
-	&{$specials[$specialavailable][2]};
-	push (@specialactive, Special->new($specialavailable, time()));
+	my $badspecial = $goodspecials + $effect - 1;
+	&{$specials[$badspecial][2]};
+	push (@specialactive, Special->new($badspecial, time()));
 	
 }
 
@@ -1203,9 +1206,9 @@ sub _getNearestRoid
 	my $dist = -1;
 	
 	foreach my $rkey (keys %roids){
-		my ($rx,$ry) = $roids{$rkey}->getCentre();
-		my $dx = $ship->{VERTEXLIST}[0][0] - $rx;
-		my $dy = $ship->{VERTEXLIST}[0][1] - $ry;
+		my $centre = $roids{$rkey}->getCentre();
+		my $dx = $ship->{VERTEXLIST}[0][0] - $$centre[0];
+		my $dy = $ship->{VERTEXLIST}[0][1] - $$centre[1];
 		my $distToRoid = sqrt(($dx*$dx)+($dy*$dy));
 		if ($distToRoid < $dist || $dist < 0){
 			$dist = $distToRoid;
@@ -1329,10 +1332,9 @@ sub stop
 sub _fire
 {	
 	if ($go){
-		my $time = getTime();
-		my $dif = $time - $lastfire;
-		if ($dif > $ship->{rof}){
-			$lastfire = $time;
+
+		if ($lastfire * $tickTime > $ship->{rof}){
+			$lastfire = 0;
 			if ($roundType eq 'WAVE' && $heat->heat($ship->{heat}))
 			{
 				#shockwave
@@ -1384,9 +1386,7 @@ sub _doinvuln
 {
 	#if (@specialactive == 0){
 		$checkroids = 0;
-		#$cnv->itemconfigure('ship', -fill=>'yellow');
 		$ship->setColour('yellow');
-		$cntl->itemconfigure('specialtext', -text=>'INVULNERABLE');
 		return 1;
 	#}
 	#return 0;
@@ -1401,7 +1401,6 @@ sub _endinvuln
 
 sub _dotriplefire
 {
-	$cntl->itemconfigure('specialtext', -text=>'TRIPLE FIRE');
 	$tripleFlag = 1;
 	return 1;
 }
@@ -1441,7 +1440,6 @@ sub _doincROF
 	#if(@specialactive == 0){
 		$ship->{rof} = $ship->{rof}/2;
 		$ship->{heat} = $ship->{heat}/3; #let them have fun
-		$cntl->itemconfigure('specialtext', -text=>'+ ROF');
 		return 1;
 	#}
 	#return 0;
@@ -1471,13 +1469,8 @@ sub _doAmmo{
 	#if(@specialactive == 0){
 		$roundType = $type;
 		my $text;
-		$text = 'Tracking Rounds' if ($type eq 'TRK');
-		$text = 'Piercing Rounds' if ($type eq 'AP');
-		$text = 'Explosive Rounds' if ($type eq 'EXP');
-		$text = 'Beam Rounds' if ($type eq 'BEAM');
-		if ($type eq 'WAVE'){$text = 'Shockwave' ;$ship->{rof} = 1;$ship->{pspeed} = 10;}
-		if ($type eq 'SEN') {$text = 'Sentry';$ship->{rof} = 2.5;$ship->{pspeed} = 2;}
-		$cntl->itemconfigure('specialtext', -text=>$text);
+		if ($type eq 'WAVE'){$ship->{rof} = 1;$ship->{pspeed} = 10;}
+		if ($type eq 'SEN') {$ship->{rof} = 2.5;$ship->{pspeed} = 2;}
 		return 1;
 	#}
 	#return 0;
@@ -1622,35 +1615,30 @@ sub _getCrystalColour{
 sub _doReverse{
 	#return 0 if (@specialactive > 0);
 	$ship->{turnrate} = $ship->{turnrate}*-1;
-	$cntl->itemconfigure('specialtext', -text=>'Reversed Controls');
 	return 1;
 }
 
 sub _doSlow{
 	#return 0 if (@specialactive > 0);
 	$ship->{mspeed} = $ship->{mspeed}/3;
-	$cntl->itemconfigure('specialtext', -text=>'Slow Speed');
 	return 1;
 }
 
 sub _doFast{
 	#return 0 if (@specialactive > 0);
 	$ship->{mspeed} += 7;
-	$cntl->itemconfigure('specialtext', -text=>'Hyper Speed');
 	return 1;
 }
 
 sub _doLoseGun{
 	#return 0 if (@specialactive > 0);
 	$fire = -1;
-	$cntl->itemconfigure('specialtext', -text=>'No Gun');
 	return 1;
 }
 
 sub _doTurnRate{
 	#return 0 if (@specialactive > 0);
 	$ship->{turnrate} -= 2;
-	$cntl->itemconfigure('specialtext', -text=>'Reduced Turn Rate');
 	return 1;
 }
 

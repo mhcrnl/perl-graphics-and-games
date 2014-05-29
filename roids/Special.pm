@@ -10,6 +10,7 @@ sub new
 	shift;
 	$self->{ID} = shift;
 	$self->{STARTTIME} = shift;
+	$self->{LABEL} = shift;
 	$self->{PAUSETIME} = 0;
 	bless $self;
 	return $self;
