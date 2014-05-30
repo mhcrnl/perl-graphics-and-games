@@ -18,7 +18,8 @@ use LineEq;
 use Math::Trig;
 use Whale3D;
 use ThreeDCubesTest;
-use Special;
+#use Special;
+use Special2;
 use strict;
 
 our $mainw = MainWindow->new(-background=>'black');
@@ -73,27 +74,45 @@ our @focuspoint = (int($cx/2),int($cy/2),1500);
 	our $sound = SoundServer->new(11);
 	our $music = Music->new();
 
-	our @specials; #might add the actions to the Special object and handle differently
+#	our @specials; #might add the actions to the Special object and handle differently
+#	
+#	$specials[0] = [\&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire, "TRIPLE FIRE"];
+#	$specials[1] = [\&_newbomb,sub{},\&_collectbomb,sub{}, "BOMB"];
+#	$specials[2] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln, "INVULNERABLE"];
+#	our $stackablespecials = scalar @specials;
+#	$specials[3] = [\&_incROF,sub{},\&_doincROF,\&_endincROF, "+ ROF"]; #would like this one to be stackable but has complications
+#	$specials[4] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds, "TRACKING ROUNDS"];
+#	$specials[5] = [sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds, "EXPLOSIVE ROUNDS"];
+#	$specials[6] = [sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds, "LASER"];
+#	$specials[7] = [sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds, "SHOCKWAVE"];
+#	$specials[8] = [sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds, "PIERCING ROUNDS"];
+#	$specials[9] = [sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds, "SENTRY"];
+#	$specials[10] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{},""]; #this one must be last of the good specials
+#	our $goodspecials = scalar @specials;
+#	#bad specials - e.g. missile hits
+#	$specials[11] = [sub{}, sub{},\&_doReverse,\&_endReverse, "Reverse Controls"];
+#	$specials[12] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod, "Slow Speed"];
+#	$specials[13] = [sub{}, sub{},\&_doFast,\&_endSpeedMod, "Hyper Speed"];
+#	$specials[14] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun, "No Gun"];
+#	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "- Turn Rate"];
 	
-	$specials[0] = [\&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire, "TRIPLE FIRE"];
-	$specials[1] = [\&_newbomb,sub{},\&_collectbomb,sub{}, "BOMB"];
-	$specials[2] = [\&_invuln,sub{},\&_doinvuln,\&_endinvuln, "INVULNERABLE"];
-	our $stackablespecials = scalar @specials;
-	$specials[3] = [\&_incROF,sub{},\&_doincROF,\&_endincROF, "+ ROF"];
-	$specials[4] = [sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds, "TRACKING ROUNDS"];
-	$specials[5] = [sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds, "EXPLOSIVE ROUNDS"];
-	$specials[6] = [sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds, "LASER"];
-	$specials[7] = [sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds, "SHOCKWAVE"];
-	$specials[8] = [sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds, "PIERCING ROUNDS"];
-	$specials[9] = [sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds, "SENTRY"];
-	$specials[10] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{},""]; #this one must be last of the good specials
-	our $goodspecials = scalar @specials;
-	#bad specials - e.g. missile hits
-	$specials[11] = [sub{}, sub{},\&_doReverse,\&_endReverse, "Reverse Controls"];
-	$specials[12] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod, "Slow Speed"];
-	$specials[13] = [sub{}, sub{},\&_doFast,\&_endSpeedMod, "Hyper Speed"];
-	$specials[14] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun, "No Gun"];
-	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "- Turn Rate"];
+	our @specials2 = (Special2->new("STACKABLE", \&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire, "TRIPLE FIRE", $tickTime),
+						Special2->new("STACKABLE", \&_newbomb,sub{},\&_collectbomb,sub{}, "BOMB", $tickTime),
+						Special2->new("STACKABLE", \&_invuln,sub{},\&_doinvuln,\&_endinvuln, "INVULNERABLE", $tickTime),
+						Special2->new("GOOD", \&_incROF,sub{},\&_doincROF,\&_endincROF, "+ ROF", $tickTime), #would like this one to be stackable but has complications
+						Special2->new("GOOD", sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds, "TRACKING ROUNDS", $tickTime),
+						Special2->new("GOOD", sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds, "EXPLOSIVE ROUNDS", $tickTime),
+						Special2->new("GOOD", sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds, "LASER", $tickTime),
+						Special2->new("GOOD", sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds, "SHOCKWAVE", $tickTime),
+						Special2->new("GOOD", sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds, "PIERCING ROUNDS", $tickTime),
+						Special2->new("GOOD", sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds, "SENTRY", $tickTime),
+						Special2->new("GOOD", \&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{},"BLINKY", $tickTime),
+						Special2->new("BAD", sub{}, sub{},\&_doReverse,\&_endReverse, "Reverse Controls", $tickTime),
+						Special2->new("BAD",sub{}, sub{},\&_doSlow,\&_endSpeedMod, "Slow Speed", $tickTime),
+						Special2->new("BAD",sub{}, sub{},\&_doFast,\&_endSpeedMod, "Hyper Speed", $tickTime),
+						Special2->new("BAD",sub{}, sub{},\&_doLoseGun,\&_endLoseGun, "No Gun", $tickTime),
+						Special2->new("BAD",sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "- Turn Rate", $tickTime),
+						);
 	
 	
 	our $specialavailable;
@@ -383,7 +402,8 @@ sub _resetShip
 	$tripleFlag = 0;
 	$alien=undef;
 	$drone=undef;
-	$specialavailable = -1;
+	#$specialavailable = -1;
+	$specialavailable = undef;
 	@specialactive = ();
 	$specialonscreentime = 0;
 	$roundType = 'STD';
@@ -676,37 +696,54 @@ sub _handleBullets
 
 sub _handlespecials
 {
-	if ($specialavailable > -1){
+	#if ($specialavailable > -1){
+	if (defined($specialavailable)){
 		$specialonscreentime++;
 	}
-	if ($specialonscreentime * $tickTime > 10 && $specialavailable > -1 && @specialactive == 0){
-		$specialavailable = -1;
+	#if ($specialonscreentime * $tickTime > 10 && $specialavailable > -1 && @specialactive == 0){
+	if ($specialonscreentime * $tickTime > 10 && defined($specialavailable) > -1 && @specialactive == 0){
+		#$specialavailable = -1;
+		$specialavailable = undef;
 		$specialonscreentime = 0;
 		$cnv->delete('special');
 	}
-	elsif ($specialavailable == -1){
-		my $rand = int(rand(300)); #may make generation rate dependant on level
-		#my $rand = 1;
+	#elsif ($specialavailable == -1){
+	elsif (!defined($specialavailable)){
+		#my $rand = int(rand(300)); #may make generation rate dependant on level
+		my $rand = 1;
 		if ($rand == 1){
-			my @temp = grep{$_->{ID} >= $stackablespecials} @specialactive;
-			if (@temp > 0)
+#			my @temp = grep{$_->{ID} >= $stackablespecials} @specialactive;
+#			if (@temp > 0)
+#			{
+#				$specialavailable = int(rand($stackablespecials-0.01));
+#			}
+#			else
+#			{
+#				$specialavailable = int(rand($goodspecials-0.01));
+#			}
+#			#$specialavailable = 4;
+#			$specialonscreentime = 0;
+#			&{$specials[$specialavailable][0]};
+			my @temp = grep{$_->{TYPE} ne 'STACKABLE'} @specialactive;
+			if (@temp == 0)
 			{
-				$specialavailable = int(rand($stackablespecials-0.01));
+				@temp = grep{$_->{TYPE} eq 'GOOD' || $_->{TYPE} eq 'STACKABLE'} @specials2;
 			}
 			else
 			{
-				$specialavailable = int(rand($goodspecials-0.01));
+				@temp = grep{$_->{TYPE} eq 'STACKABLE'} @specials2;
 			}
-			#$specialavailable = 4;
+			$specialavailable = $temp[int(rand(scalar @temp-0.01))];
 			$specialonscreentime = 0;
-			&{$specials[$specialavailable][0]};
+			$specialavailable->display;
 		}
 	}
 	
 	foreach (@specialactive){
 		$_->tick;
 		if ($_->hasExpired){
-			&{$specials[$_->{ID}][3]};
+			#&{$specials[$_->{ID}][3]};
+			$_->end;
 			shift @specialactive;
 		}
 	}
@@ -722,18 +759,30 @@ sub _handlespecials
 		$cntl->itemconfigure('specialtext', -text=>"NORMAL");
 	}
 	
-	if ($specialavailable > -1){
-		&{$specials[$specialavailable][1]};
+	#if ($specialavailable > -1){
+	if (defined($specialavailable)){
+		#&{$specials[$specialavailable][1]};
+		$specialavailable->whileDisplaying;
 		my ($x, $y, $x1, $y1) = $cnv->coords('special');
 		my @obj = $cnv->find('overlapping', $x, $y, $x1, $y1);
 		my $del = 0;
 		foreach my $id (@obj){
 			if (${$cnv->itemcget($id, -tags)}[0] eq $ship->{TAG} && $del == 0){
-				my $active = Special->new($specialavailable, $specials[$specialavailable][4], $tickTime);
-				@specialactive = grep{$_->{ID} != $specialavailable} @specialactive; #drop existing specials that are the same
-				&{$specials[$specialavailable][2]};
-				push (@specialactive, $active);
-				$specialavailable = -1;
+				#my $active = Special->new($specialavailable, $specials[$specialavailable][4], $tickTime);
+				#@specialactive = grep{$_->{ID} != $specialavailable} @specialactive; #drop existing specials that are the same
+				#&{$specials[$specialavailable][2]};
+				#push (@specialactive, $active);
+				#$specialavailable = -1;
+				my $cnt = scalar @specialactive;
+				@specialactive = grep{$_->{LABEL} != $specialavailable->{LABEL}} @specialactive;
+				if ($cnt == scalar @specialactive){
+					$specialavailable->start;
+				}else{
+					$specialavailable->resetTimer;
+				}
+				
+				push(@specialactive, $specialavailable);
+				$specialavailable = undef;
 				$sound->play('special');
 				$del = 1;
 				last;
@@ -741,10 +790,6 @@ sub _handlespecials
 		}
 		$cnv->delete('special') if ($del == 1);
 	}
-	
-	#foreach (@specialactive){
-	#	&{$specials[$_->{ID}][2]};
-	#}
 }
 
 sub _breakship
@@ -816,11 +861,6 @@ sub _checkRoidCollisions
 {
 	my ($x, $y, $x1, $y1, $no_triangles) = $ship->getBoundingBox(); #should reduce number of checks to do
 	my @keys = $cnv->find('overlapping', $x, $y, $x1, $y1);
-	#return if (@keys <= (1+$no_triangles)); #minimum 3 objects will be found, background and the 2 ship halves (may need to take into account if background is missing)
-	#we are checking most of the time anyway, especially if thrusting due to the exhaust particles
-	#foreach my $k (@keys){
-	#	print "TAG: ".${$cnv->itemcget($k, -tags)}[0] ."\n";
-	#}
 	@keys = grep{${$cnv->itemcget($_, -tags)}[0] =~ m/roid|missile|whale/;}@keys;
 	return if (@keys == 0);
 	foreach my $k (@keys){
@@ -876,25 +916,40 @@ sub _checkRoidCollisions
 sub _processEffect
 {
 	my $effect = shift;
-	if ($effect == 0){
+	if ($effect == 0){ #red missile - die
 		$go = 2;
 		return;
 	}
-	if (@specialactive > 0 || $specialavailable > -1){
-		#remove any existing special
+
+		_expireSpecials();
+	
+	#replace with the bad special
+	
+	#my $badspecial = $goodspecials + $effect - 1;
+	#&{$specials[$badspecial][2]};
+	#push (@specialactive, Special->new($badspecial, $specials[$badspecial][4], $tickTime));
+	my @temp = grep{$_->{TYPE} eq 'BAD'} @specials2;
+	$effect--;
+	if ($effect > 0 && $effect < @temp)
+	{
+		push (@specialactive, $temp[$effect-1]);
+	}
+}
+
+sub _expireSpecials
+{
+	$cnv->delete('special'); #remove any special icon on screen
+	if (@specialactive > 0 || defined($specialavailable)){
+	#remove any existing special
 		foreach(@specialactive)
 		{
-			$_->{STARTTIME}-=20;
+			#$_->{STARTTIME}-=20;
+			$_->end;
 		}
-		$specialavailable = -1;
-		_handlespecials();
+		#$specialavailable = -1;
+		@specialactive = ();
+		$specialavailable = undef;
 	}
-	#replace with the bad special
-	$cnv->delete('special'); #remove any special icon on screen
-	my $badspecial = $goodspecials + $effect - 1;
-	&{$specials[$badspecial][2]};
-	push (@specialactive, Special->new($badspecial, $specials[$badspecial][4], $tickTime));
-	
 }
 
 
@@ -1398,7 +1453,8 @@ sub _newbomb
 	if ($ship->{bomb} < $ship->{basebomb}){ 
 		_specialbox('black','white','B','white');
 	}else{
-		$specialavailable = -1;
+		#$specialavailable = -1;
+		$specialavailable = undef;
 	}
 }
 
@@ -1407,7 +1463,8 @@ sub _collectbomb
 	#not a timed effect reset flags
 	$ship->{bomb}+=1;
 	#$specialactive = 0;
-	$specialavailable = -1;
+	#$specialavailable = -1;
+	$specialavailable = undef;
 	$cntl->itemconfigure('countdown', -text=>'0');
 	return 0;
 	
@@ -1443,7 +1500,8 @@ sub _ammoBox
 	if ($roundType eq 'STD'){
 		 _specialbox($bgcolour,$txtcolour,$text,$txtcolour) ;
 	}else{
-		$specialavailable = -1;
+		#$specialavailable = -1;
+		$specialavailable = undef;
 	}
 }
 
@@ -1480,7 +1538,8 @@ sub _blinky
 		my $y = int(rand($cy-20));
 		$cnv->createOval($x, $y, $x+30, $y+30, -fill=>'#FF0000', -outline=>'red', -tags=>["special","plus"]);
 	}else{
-		$specialavailable = -1;
+		#$specialavailable = -1;
+		$specialavailable = undef;
 	}
 	
 }
@@ -1510,7 +1569,8 @@ sub _blinkyOnScreen
 sub _doBlinky
 {
 	#do side game
-	$specialavailable = -1;
+	#$specialavailable = -1;
+	$specialavailable = undef;
 	$cntl->itemconfigure('countdown', -text=>'0');
 	$cnv->delete('special');
 	$cnv->update;
@@ -1535,18 +1595,21 @@ sub _doBlinky
 				$music->end();
 				if ($p eq "Complete"){
 					#award crystal
-					$crystal = int(rand($goodspecials - 1.01)); #don't include last special element, is another blinky 
-					#print "Crytsal: $crystal\n";
+					my @temp = grep{$_->{TYPE} ne 'BAD' && $_->{LABEL} ne 'BLINKY'} @specials2;
+					$crystal = $temp[int(rand(scalar @temp - 0.01))];
 					#will need to update a marker
 					my $c = _getCrystalColour($crystal);
 					$cframe->configure(-background=>$c);
 				}elsif ($p eq "Hit Gate"){
 					#activate bad special
-					my $badspecs =  scalar @specials - $goodspecials - 0.01;
-					my $effect = int(rand($badspecs));
-					my $badspecial = $goodspecials + $effect;
-					&{$specials[$badspecial][2]};
-					push (@specialactive, Special->new($badspecial, $specials[$badspecial][4], $tickTime));
+					#my $badspecs =  scalar @specials - $goodspecials - 0.01;
+					#my $effect = int(rand($badspecs));
+					#my $badspecial = $goodspecials + $effect;
+					#&{$specials[$badspecial][2]};
+					#push (@specialactive, Special->new($badspecial, $specials[$badspecial][4], $tickTime));
+					_expireSpecials();
+					my @temp = grep{$_->{TYPE} eq 'BAD'} @specials2;
+					push (@specialactive, $temp[int(rand(scalar @temp - 0.01))]);
 					$ret = 1;
 				}
 				#incomplete course does nothing
@@ -1596,31 +1659,26 @@ sub _getCrystalColour{
 }
 
 sub _doReverse{
-	#return 0 if (@specialactive > 0);
 	$ship->{turnrate} = $ship->{turnrate}*-1;
 	return 1;
 }
 
 sub _doSlow{
-	#return 0 if (@specialactive > 0);
 	$ship->{mspeed} = $ship->{mspeed}/3;
 	return 1;
 }
 
 sub _doFast{
-	#return 0 if (@specialactive > 0);
 	$ship->{mspeed} += 7;
 	return 1;
 }
 
 sub _doLoseGun{
-	#return 0 if (@specialactive > 0);
 	$fire = -1;
 	return 1;
 }
 
 sub _doTurnRate{
-	#return 0 if (@specialactive > 0);
 	$ship->{turnrate} -= 2;
 	return 1;
 }
@@ -1841,8 +1899,10 @@ sub useCrystal
 	if (@specialactive == 0 && $crystal > -1){ #do not activate if a special is active
 		#print "$crystal\n";
 		$cnv->delete('special'); #remove any special icon on screen
-		push (@specialactive, Special->new($crystal, $specials[$crystal][4], $tickTime));
-		&{$specials[$crystal][2]};
+		#push (@specialactive, Special->new($crystal, $specials[$crystal][4], $tickTime));
+		#&{$specials[$crystal][2]};
+		push (@specialactive, $crystal);
+		$crystal->start;
 		#reset
 		$cframe->configure(-background=>'black');
 		$crystal = -1;
