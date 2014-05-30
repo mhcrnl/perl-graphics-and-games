@@ -9,7 +9,7 @@ use Tk;
 
 =head1 NAME
 
-Roid3D - Data object for a 3D asteroid object
+Roid3D
 
 =head1 SYNOPSIS
 
@@ -17,16 +17,16 @@ TODO
 
 =head1 DESCRIPTION
 
-TODO
+Data object for a 3D asteroid object
 
 =head1 METHODS
 
 The following methods (in addition to those provided by the
 superclass) are available:
 
-=over 5
+=over 6
 
-=item $roid3d->new($movex, $movey, $size, $hitpoints)
+=item Roid3D->new($movex, $movey, $size, $hitpoints)
 
 Create a new 3D asteroid object, it will shift it's position by $movex and $movey with a random rotation every time update is called
 This basically builds a sphere and deforms it by altering the radius and y values by a random number for each point
@@ -208,6 +208,12 @@ sub update
 	$self->rotate('y', $self->{SPINY});
 	$self->translate($$centre[0]+$self->{MX}, $$centre[1]+$self->{MY}, $$centre[2],);
 }
+
+=item $roid3d->vertexNormal($vertexNo, $facetNo)
+
+Get the normal vector at the vertex of a facet, this will be the average of all facet normals that share the facet
+
+=cut
 
 sub vertexNormal
 {

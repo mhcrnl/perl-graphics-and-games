@@ -35,7 +35,7 @@ our $mw;
 our $cnv;
 our $cframe;
 
-our $generate3Droids = 0; #will have slow downs if true
+our $generate3Droids = 0; #will have slow downs if true and depends a lot on PC performance
 our $tickTime = 1/40; #40 ticks per second
 our $level = 1;
 our $maxlevel = 8;
@@ -50,7 +50,6 @@ our $lastfire;
 our $fire;
 our $checkroids;
 our $bomb;
-our $pausetime;
 our $alien=undef;
 our $drone=undef;
 our $momx;
@@ -90,16 +89,16 @@ our @focuspoint = (int($cx/2),int($cy/2),1500);
 	$specials[10] = [\&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{},""]; #this one must be last of the good specials
 	our $goodspecials = scalar @specials;
 	#bad specials - e.g. missile hits
-	$specials[11] = [sub{}, sub{},\&_doReverse,\&_endReverse, "Reversed Controls"];
+	$specials[11] = [sub{}, sub{},\&_doReverse,\&_endReverse, "Reverse Controls"];
 	$specials[12] = [sub{}, sub{},\&_doSlow,\&_endSpeedMod, "Slow Speed"];
 	$specials[13] = [sub{}, sub{},\&_doFast,\&_endSpeedMod, "Hyper Speed"];
 	$specials[14] = [sub{}, sub{},\&_doLoseGun,\&_endLoseGun, "No Gun"];
-	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "Reduced Turn Rate"];
+	$specials[15] = [sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "- Turn Rate"];
 	
 	
 	our $specialavailable;
 	our @specialactive;
-	our $specialstarttime;
+	our $specialonscreentime = 0;
 	our $tripleFlag = 0;
 	our $ship = undef;
 	our $dontEnd = 0;
@@ -218,7 +217,7 @@ sub _buildTopLevel
 	$cntl->createText(75, 33, -text=>$score, -anchor=>'w', -font=>'{Arial Bold} 10', -fill=>'white', -tags=>'scoretext');
 	$cntl->createText(150, 33, -text=>'ALIVE', -anchor=>'w', -font=>'{Arial Bold} 10', -fill=>'green', -tags=>'deadtext');
 	$cntl->createText(225, 33, -text=>'NORMAL', -anchor=>'w', -font=>'{Arial Bold} 10', -fill=>'white', -tags=>'specialtext');
-	$cntl->createText(350, 33, -text=>'0', -anchor=>'w', -font=>'{Arial Bold} 10', -fill=>'white', -tags=>'countdown');
+	$cntl->createText(370, 33, -text=>'0', -anchor=>'w', -font=>'{Arial Bold} 10', -fill=>'white', -tags=>'countdown');
 
 	_resetShip();
 }
@@ -386,8 +385,7 @@ sub _resetShip
 	$drone=undef;
 	$specialavailable = -1;
 	@specialactive = ();
-	$specialstarttime = 0;
-	$pausetime = 0;
+	$specialonscreentime = 0;
 	$roundType = 'STD';
 	$roundType = 'BEAM' if ($ship->{guntype} == 2);
 	@bloom = ();
@@ -418,15 +416,7 @@ sub go
 	}
 	$music->play('main');
 	$go = 1;
-
-		$specialstarttime = time() - $pausetime if ($pausetime > 0);
 	
-		foreach(@specialactive)
-		{
-			$_->{STARTTIME} = time() - $_->{PAUSETIME};
-			$_->{PAUSETIME} = 0;
-		}
-	$pausetime = 0;
 	my $cycle = 0;
 	my $coolingcycle = 0;
 	my $nextroid = 1;
@@ -505,7 +495,6 @@ sub _handleWhale
 		$spacewhale->{ID} = $tdc->registerObject($spacewhale,\@focuspoint,'#99BBFF',50,int($cy/(1+rand(9))),800, 0);
 	} elsif (defined($spacewhale)){
 		my $centre = $spacewhale->getCentre();
-		#print join(":",@$centre)."\n";
 		if ($$centre[2] > 300){
 			$tdc->rotate($spacewhale->{ID},'z',-2.6,2.6,1);
 			$tdc->translate($spacewhale->{ID},0,0,-20,1);
@@ -633,8 +622,8 @@ sub _handleMovement
 sub _handleBomb
 {
 	my ($x, $y, $x1, $y1) = $cnv->coords('blastwave');
-	if (($x1 - $x) > ($cx*0.66)){
-		#does not blast whole screen (2/3 distance of x)
+	if (($x1 - $x) > ($cx*0.5)){
+		#does not blast whole screen (1/2 distance of x)
 		$bomb = 0;
 		$cnv->delete('blastwave');
 	}else{
@@ -687,9 +676,12 @@ sub _handleBullets
 
 sub _handlespecials
 {
-
-	if (time() - $specialstarttime > 10 && $specialavailable > -1 && @specialactive == 0){
+	if ($specialavailable > -1){
+		$specialonscreentime++;
+	}
+	if ($specialonscreentime * $tickTime > 10 && $specialavailable > -1 && @specialactive == 0){
 		$specialavailable = -1;
+		$specialonscreentime = 0;
 		$cnv->delete('special');
 	}
 	elsif ($specialavailable == -1){
@@ -706,15 +698,17 @@ sub _handlespecials
 				$specialavailable = int(rand($goodspecials-0.01));
 			}
 			#$specialavailable = 4;
-			$specialstarttime = time();
+			$specialonscreentime = 0;
 			&{$specials[$specialavailable][0]};
 		}
 	}
 	
-	while (@specialactive > 0 && $specialactive[0]->hasExpired())
-	{
-		&{$specials[$specialactive[0]->{ID}][3]};
-		shift @specialactive;
+	foreach (@specialactive){
+		$_->tick;
+		if ($_->hasExpired){
+			&{$specials[$_->{ID}][3]};
+			shift @specialactive;
+		}
 	}
 	
 	if (@specialactive > 0)
@@ -735,7 +729,7 @@ sub _handlespecials
 		my $del = 0;
 		foreach my $id (@obj){
 			if (${$cnv->itemcget($id, -tags)}[0] eq $ship->{TAG} && $del == 0){
-				my $active = Special->new($specialavailable, time(), $specials[$specialavailable][4]);
+				my $active = Special->new($specialavailable, $specials[$specialavailable][4], $tickTime);
 				@specialactive = grep{$_->{ID} != $specialavailable} @specialactive; #drop existing specials that are the same
 				&{$specials[$specialavailable][2]};
 				push (@specialactive, $active);
@@ -897,10 +891,9 @@ sub _processEffect
 	}
 	#replace with the bad special
 	$cnv->delete('special'); #remove any special icon on screen
-	$specialstarttime = time();
 	my $badspecial = $goodspecials + $effect - 1;
 	&{$specials[$badspecial][2]};
-	push (@specialactive, Special->new($badspecial, time()));
+	push (@specialactive, Special->new($badspecial, $specials[$badspecial][4], $tickTime));
 	
 }
 
@@ -1061,7 +1054,7 @@ sub _checkBulletCollision3D
 {
 	my $obj = shift;
 	my $t = shift;
-	my $tag = ${$cnv->itemcget($t, -tags)}[0];
+	my $tag = ${$cnv->itemcget($t, -tags)}[1];
 	my $ret = 0;
 	if ($tag =~ m/roid:(\d+)/ && $roids{$1}){
 			$t = $1;
@@ -1084,7 +1077,7 @@ sub _checkBulletCollision3D
 					my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
 					my $r = Roid3D->new($movex, $movey,  $size, 1);
 					$r->{ID} = $tdc->registerObject($r,\@focuspoint,$roids{$t}->{SHADE},$argx, $argy,80,0,1);
-					$r->{TAG} = "roid:".$r->{ID};
+					$r->{TAG} = "roid roid:".$r->{ID};
 					$roids{$r->{ID}} = $r;
 				}
 			}else{
@@ -1303,7 +1296,7 @@ sub _generateRoid
 	{
 		$r = Roid3D->new($movex, $movey, $size, $hp);
 		$r->{ID} = $tdc->registerObject($r,\@focuspoint,$colour,$argx, $argy,80,0,1);
-		$r->{TAG} = "roid:".$r->{ID};
+		$r->{TAG} = "roid roid:".$r->{ID};
 	}
 	else
 	{
@@ -1317,16 +1310,6 @@ sub stop
 {
 	#should rename as pause
 	$go = 0;
-	$pausetime = 0;
-	if ($specialavailable > -1){
-		$pausetime = time()-$specialstarttime;
-	}
-	if (@specialactive > 0){
-		foreach(@specialactive)
-		{
-			$_->{PAUSETIME} = time()-$_->{STARTTIME};
-		}
-	}
 }
 
 sub _fire
@@ -1561,9 +1544,9 @@ sub _doBlinky
 					#activate bad special
 					my $badspecs =  scalar @specials - $goodspecials - 0.01;
 					my $effect = int(rand($badspecs));
-					$specialavailable = $goodspecials + $effect;
-					$specialstarttime = time();
-					&{$specials[$specialavailable][2]};
+					my $badspecial = $goodspecials + $effect;
+					&{$specials[$badspecial][2]};
+					push (@specialactive, Special->new($badspecial, $specials[$badspecial][4], $tickTime));
 					$ret = 1;
 				}
 				#incomplete course does nothing
@@ -1858,7 +1841,7 @@ sub useCrystal
 	if (@specialactive == 0 && $crystal > -1){ #do not activate if a special is active
 		#print "$crystal\n";
 		$cnv->delete('special'); #remove any special icon on screen
-		push (@specialactive, Special->new($crystal, time()));
+		push (@specialactive, Special->new($crystal, $specials[$crystal][4], $tickTime));
 		&{$specials[$crystal][2]};
 		#reset
 		$cframe->configure(-background=>'black');
