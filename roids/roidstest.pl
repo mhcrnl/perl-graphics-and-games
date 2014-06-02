@@ -658,6 +658,10 @@ sub _handleBullets
 					push(@btemp, $bul);
 				}
 			}else{
+				if ($bul->{ROUND} eq 'TRK' && ($bul->{CNT} == 15 || ($bul->{TRACKING} != 0 && $bul->{TRACKING}->{DEAD}==1)))
+				{
+					$bul->{TRACKING} = _getNearestRoid($bul->{X}, $bul->{Y});
+				}
 				push(@btemp, $bul);
 			}
 		}
@@ -689,7 +693,13 @@ sub _handlespecials
 			{
 				@temp = grep{$_->{TYPE} eq 'STACKABLE'} @specials2;
 			}
-			$specialavailable = $temp[int(rand(scalar @temp-0.01))];
+			#if (@temp >=4){
+			#	$specialavailable = $temp[4];
+			#}else
+			#{
+				$specialavailable = $temp[int(rand(scalar @temp-0.01))];
+			#}
+			
 			$specialonscreentime = 0;
 			$specialavailable->display;
 		}
@@ -1186,15 +1196,14 @@ sub _checkBeamRound
 
 sub _getNearestRoid
 {
-	my $round = shift;
-	return 0 if (! ($round eq 'TRK')); #tracking round
+	my ($x, $y) = @_;
 	my $roid = 0;
 	my $dist = -1;
 	
 	foreach my $rkey (keys %roids){
 		my $centre = $roids{$rkey}->getCentre();
-		my $dx = $ship->{VERTEXLIST}[0][0] - $$centre[0];
-		my $dy = $ship->{VERTEXLIST}[0][1] - $$centre[1];
+		my $dx = $x - $$centre[0];
+		my $dy = $y - $$centre[1];
 		my $distToRoid = sqrt(($dx*$dx)+($dy*$dy));
 		if ($distToRoid < $dist || $dist < 0){
 			$dist = $distToRoid;
@@ -1341,7 +1350,7 @@ sub _generateBullet
 	my ($x, $y, $addx, $addy) = $ship->getFireLine($magnitude,$line);
 	my ($xs, $ys, $addxs, $addys) = $ship->getFireLine($ship->{thrust},0);
 	#momentum of ship now imparted to bullets
-	my $b = Bullet->new($x, $y, $addx+$addxs+$momx, $addy+$addys+$momy, \$cnv, $roundType, _getNearestRoid($roundType));
+	my $b = Bullet->new($x, $y, $addx+$addxs+$momx, $addy+$addys+$momy, \$cnv, $roundType);
 	push(@bullets, $b);
 	if ($line==0){
 		$sound->play("bullet$roundType");

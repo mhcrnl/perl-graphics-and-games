@@ -17,7 +17,7 @@ sub new
 	$self->{ROUND} = shift;
 	$self->{ID} = 0;
 	$self->{CNT} = 0;
-		$self->{TRACKING} = shift;
+		$self->{TRACKING} = 0;
 		my $length=0;
 		if ($self->{ADDX} == 0){
 			$length=sqrt($self->{ADDY}*$self->{ADDY});
@@ -59,8 +59,8 @@ sub _alterTrajectory{
 	
 	$dif = sprintf "%.2f", $dif;
 	
-	$dif = 5 if ($dif > 5);
-	$dif = -5 if ($dif < -5);
+	$dif = 6 if ($dif > 6);
+	$dif = -6 if ($dif < -6);
 	
 	my $tempvec = CanvasObject->new;
 	my @vector;
@@ -164,7 +164,7 @@ sub draw
 	my $tag=shift;
 	$tag='bullet' if (! $tag);
 	
-	_alterTrajectory($self) if ($self->{ROUND} eq 'TRK' && $self->{CNT} > 10); #tracking round
+	_alterTrajectory($self) if ($self->{ROUND} eq 'TRK'); #tracking round
 	
 	my $cnv=${$self->{CNV}};
 	my $x = $self->{X};
