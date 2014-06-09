@@ -1046,95 +1046,59 @@ sub _checkBulletCollision
 		}
 		else
 		{
-			$ret = ($generate3Droids) ? _checkBulletCollision3D($obj, $t) : _checkBulletCollision2D($obj, $t);
+			$ret = _checkBulletRoidCollision($obj, $t);
 			last if ($obj->removeAfterHit() == 1);
 		}
 	}
 	return $ret;
 }
 
-sub _checkBulletCollision3D
+sub _checkBulletRoidCollision
 {
 	my $obj = shift;
 	my $t = shift;
 	my $tag = ${$cnv->itemcget($t, -tags)}[1];
 	my $ret = 0;
-	if ($tag =~ m/roid:(\d+)/ && $roids{$1}){
-			$t = $1;
-			if ($roids{$t}->{SHADE} eq '#999999'){ #should use a proper marker
-				#darkroid
-				$ret = 1;
-				$roids{$t}->{HP}-=1;
-				if ($roids{$t}->{HP} == 0){
-					$score+=(15*$level);
-					$sound->play('hit1');
-					_newbloom($roids{$t}, 'white',2);
-					removeRoid($t);
-				}else{
-					$sound->play('hit2') if ($obj->{ROUND} ne 'BEAM'); #beam will destroy in one hit usually, don't bother playing this sound
-				}
-			}else{
-			if ($roids{$t}->{SIZE} > 1){
-				foreach(0..1)
-				{
-					my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
-					my $r = Roid3D->new($movex, $movey,  $size, 1);
+	if ($tag =~ m/roid:(\d+)/){
+		$t = $1;
+	} 
+	return 0 if (!$roids{$t});
+	if ($roids{$t}->{SHADE} eq '#999999' || $roids{$t}->{SHADE} eq 'black'){ #should use a proper marker
+		#darkroid
+		$ret = 1;
+		$roids{$t}->{HP}-=1;
+		if ($roids{$t}->{HP} == 0){
+			$score+=(15*$level);
+			$sound->play('hit1');
+			_newbloom($roids{$t}, 'white',2);
+			removeRoid($t);
+		}else{
+			$sound->play('hit2') if ($obj->{ROUND} ne 'BEAM'); #beam will destroy in one hit usually, don't bother playing this sound
+		}
+	}else{
+		if ($roids{$t}->{SIZE} > 1){
+			foreach(0..1)
+			{
+				my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
+				my $r;
+				if ($generate3Droids){
+					$r = Roid3D->new($movex, $movey,  $size, 1);
 					$r->{ID} = $tdc->registerObject($r,\@focuspoint,$roids{$t}->{SHADE},$argx, $argy,80,0,1);
 					$r->{TAG} = "roid roid:".$r->{ID};
-					$roids{$r->{ID}} = $r;
-				}
-			}else{
-				$score+=(2*$level);
-				_newbloom($roids{$t}, 'white',2);
-			}
-			$ret=1;
-			$sound->play('hit1');
-			removeRoid($t);
-			}
-		}
-		return $ret;
-}
-
-sub _checkBulletCollision2D
-{
-	my $obj = shift;
-	my $t = shift;
-	my $ret = 0;
-	if ($roids{$t}){
-			if ($roids{$t}->{SHADE} eq 'black'){
-				#darkroid
-				$ret = 1;
-				$roids{$t}->{HP}-=1;
-				if ($roids{$t}->{HP} == 0){
-					$score+=(15*$level);
-					$sound->play('hit1');
-					_newbloom($roids{$t}, 'white',2);
-					removeRoid($t);
 				}else{
-					$sound->play('hit2') if ($obj->{ROUND} ne 'BEAM'); #beam will destroy in one hit usually, don't bother playing this sound
-				}
-			}else{
-			if ($roids{$t}->{SIZE} > 1){
-				#split into 2 smaller ones and modify trajectories
-				
-				foreach(0..1)
-				{
-					my ($argx, $argy,$size, $movex, $movey) = _splitRoid($roids{$t});
-					my $r = Roid->new($argx, $argy, $size, $movex, $movey, 1, $roids{$t}->{SHADE}, \$cnv);
-					
+					$r = Roid->new($argx, $argy, $size, $movex, $movey, 1, $roids{$t}->{SHADE}, \$cnv);
 					$r->update();
-					$roids{$r->{ID}} = $r;
 				}
-				$score+=(1*$level);
-			}else{
-				$score+=(2*$level);
-				_newbloom($roids{$t}, 'white',2);
+				$roids{$r->{ID}} = $r;
 			}
-			$ret=1;
-			$sound->play('hit1');
-			removeRoid($t);
-			}
+		}else{
+			$score+=(2*$level);
+			_newbloom($roids{$t}, 'white',2);
 		}
+		$ret=1;
+		$sound->play('hit1');
+		removeRoid($t);
+	}
 	return $ret;
 }
 
@@ -1554,7 +1518,6 @@ sub _doBlinky
 	close PROG;
 	$mw->deiconify;
 	$mw->focusForce;
-	#sleep 2;
 	my $w=$mw->Toplevel(-class=>'Countdown');
 	my $posx=int($cx/2 - 100);
 	my $posy=int($cy/2 - 50);
@@ -1576,9 +1539,7 @@ sub _doBlinky
 	$mw->focusForce;
 	wkeyup();
 	$music->play('main');
-	#print "done\n";
 	return $ret;
-	#go(); # see stop
 }
 
 sub _getCrystalColour{

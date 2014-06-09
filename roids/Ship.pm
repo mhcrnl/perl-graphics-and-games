@@ -177,54 +177,15 @@ sub setDimensions
 	${$self->{VERTEXLIST}}[5][2] = 10;
 }
 
-#sub draw
-#{
-#	my $self = shift;
-#	my $cnv = ${$self->{CNV}};
-#	my $tag = shift;
-#	my $vertexList = $self->{VERTEXLIST};
-#	my $facetVertices = $self->{FACETVERTICES};
-#	my $colour = $self->{SHADE};
-#	my $outlineColour = $self->{SHADE};
-#	$outlineColour = 'blue' if ($self->{shield} > 0);
-#	for (my $i = 0 ; $i < @{$facetVertices} ; $i++)
-#	{
-#
-#		my $x = $$vertexList[$$facetVertices[$i][0]][0];
-#		my $y = $$vertexList[$$facetVertices[$i][0]][1];
-#		my $x1 = $$vertexList[$$facetVertices[$i][1]][0];
-#		my $y1 = $$vertexList[$$facetVertices[$i][1]][1];
-#		my $x2 = $$vertexList[$$facetVertices[$i][2]][0];
-#		my $y2 = $$vertexList[$$facetVertices[$i][2]][1];
-#		if ($$facetVertices[$i][3] > 0){
-#			$cnv->coords($$facetVertices[$i][3], $x,$y,$x1,$y1,$x2,$y2);
-#		}else{
-#			$$facetVertices[$i][3] = $cnv->createPolygon($x,$y,$x1,$y1,$x2,$y2, -fill=>$colour, -outline=>$outlineColour, -tags=>$tag);
-#		}
-#
-#	}
-#}
-
 sub shieldOn
 {
 	my $self = shift;
-	#my $cnv = ${$self->{CNV}};
-	#my $facetVertices = $self->{FACETVERTICES};
-	#foreach (@{$facetVertices}){
-	#	$cnv->itemconfigure($$_[3], -outline=>'blue') if ($$_[3] != 0);
-	#}
 	$self->{OUTL} = 'blue';
 }
 
 sub shieldOff
 {
 	my $self = shift;
-	#my $cnv = ${$self->{CNV}};
-	#my $colour = $self->{SHADE};
-	#my $facetVertices = $self->{FACETVERTICES};
-	#foreach (@{$facetVertices}){
-	#	$cnv->itemconfigure($$_[3], -outline=>$colour)  if ($$_[3] != 0);
-	#}
 	$self->{OUTL} = '';
 
 }
