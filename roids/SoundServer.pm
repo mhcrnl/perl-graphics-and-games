@@ -5,7 +5,7 @@ use IO::Handle;
 if ($^O eq "MSWin32"){
 use Win32::Process;
 #use Win32::TieRegistry;#updated to AP 5.10.1 build 1007 and TieRegistry no longer appears to pick up reg entry (on vista) have to go to older module
-use Win32::Registry;
+#use Win32::Registry;
 }
 
 $SIG{CHLD}='IGNORE';
@@ -96,14 +96,27 @@ sub _setSoundServer
 	#$Registry->Delimiter("/");
 	#my $key= $Registry->{"HKEY_LOCAL_MACHINE/Software/perl"};
 	#my $path= $key->{"/BinDir"};
-	my $key;
-	$::HKEY_LOCAL_MACHINE->Open("SOFTWARE\\Perl\\", $key);
-	my ($type, $path);
-    	$key->QueryValueEx("BinDir", $type, $path);
+	#my $key;
+	#$::HKEY_LOCAL_MACHINE->Open("SOFTWARE\\Perl\\", $key);
+	#my ($type, $path);
+    #$key->QueryValueEx("BinDir", $type, $path);
+    # these registry settings are specific to ActivePerl - do something different if we want to be able to use different ones, such as Strawberry Perl
+    #we could pull the perl directory from PATH (search for perl.exe), or more straight forward may be to check the perl usage (though this string could possibly change?)
+    my $path = "";
+    open(my $fh, '-|', 'perl -h') or die $!;
+
+	while (my $line = <$fh>) {
+	    if ($line =~ /[Uu]sage:\s*(.+?)\s/){
+	    	$path = $1;
+	    	last;
+	    }
+	}
+	
+	close $fh;
+    
 	for (my $i = 0 ; $i < $no_channels ; $i++){
 		my $port = 7001+$i;
 		print "$port\n";
-			#`start perl soundServer.pl $port`;
 		 Win32::Process::Create($p[$i],
 		  $path,
 		  "perl soundServer.pl $port",
