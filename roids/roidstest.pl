@@ -12,7 +12,7 @@ use SoundServer;
 use Music;
 use HeatMeter;
 use Configure;
-use Image::Magick;
+use GD;
 use GamesLib;
 use LineEq;
 use Math::Trig;
@@ -20,6 +20,7 @@ use Whale3D;
 use ThreeDCubesTest;
 use Special2;
 use strict;
+
 
 our $mainw = MainWindow->new(-background=>'black');
 my $g = ($mainw->screenwidth()-5)."x".($mainw->screenheight()-60)."+0+0";
@@ -64,6 +65,10 @@ our $spacewhale=undef;
 our $adown = 0;
 our $ddown = 0;
 our @focuspoint = (int($cx/2),int($cy/2),1500);
+our $specialtag = 'special';
+our $backdropSource = 'horseheadx.jpg';
+our $backdropFile = 'backdrop.jpg';
+our $backdropTag = 'backdrop';
 
 
 	#start listeners on ports to listen for sound events
@@ -99,29 +104,7 @@ our @focuspoint = (int($cx/2),int($cy/2),1500);
 	our $ship = undef;
 	our $dontEnd = 0;
 	
-	#resize backdrop image to display size
-	if (-f 'horseheadx.jpg'){
-		my $img = new Image::Magick;
-		$img->Read('horseheadx.jpg');
-		my $screenratio = $cx/$cy;
-		my $backratio = $img->Get('height') / $img->Get('width');
-		if ($backratio <= $screenratio){
-			#y is longer in image than screen
-			$img->Resize('geometry' => $cx);		
-		}elsif($backratio > $screenratio){
-			#x / width greater in image
-			$img->Resize('geometry' => $cy);
-		}
-		 #resize keeps original ratios  
-		 #this does not
-		  # $img->Scale('height' => $cy, 'width'=>$cx);
-	  
-
-		$img->Write('backdrop.jpg');
-	}else{
-		print "Backdrop file missing\n";
-	}
-
+	getBackdrop();
 
 _buildTopLevel();
 $mainw->withdraw();
@@ -169,11 +152,13 @@ sub _buildTopLevel
 	$sideframe->Label(-text=>"", -background=>'black', -borderwidth=>0, -pady=>10)->pack;
 	my $hcnv = $sideframe->Canvas(-width=>30, -height =>300, -borderwidth=>0, -background=>'black')->pack;
 	$heat = HeatMeter->new(\$hcnv,0.97);
-	if (-f 'backdrop.jpg' && ! defined($mw->imageNames)){
-		$mw->Photo('backdrop', -format => 'jpeg', -file => 'backdrop.jpg');
+	if (-f $backdropFile && ! defined($mw->imageNames)){
+		$mw->Photo($backdropTag, -format => 'jpeg', -file => $backdropFile);
 	}
 	if (defined($mw->imageNames) && @{$mw->imageNames} > 0){
-		$cnv->createImage($cx/2,$cy/2, -image=>'backdrop', -anchor=>'center', -tags=>'bg');
+		$cnv->createImage($cx/2,$cy/2, -image=>$backdropTag, -anchor=>'center', -tags=>'bg');
+	}else{
+		_createStars(\$cnv);
 	}
 	my $tempx = int(($cx+30)/2);
 	my $ctlf = $mw->Frame(-width=>$tempx, -height=>100, -background => 'black', -borderwidth=>2)->pack;
@@ -289,21 +274,47 @@ sub dispInstructions
 		push(@lines,'Thanks to author planetjazzbass on Looperman.com for the Ambient loops');
 		push(@lines,'Sound effects from Worms 2');
 		push(@lines,'Music for gates side game from the X2/X3 games by Egosoft');
-		#require Tk::Pane;
-		#my $sf = $w->Scrolled('Frame', -width=>420, -height =>400, -highlightbackground=>'black',-scrollbars=>'e')->pack(-side=>'left');
-		#scrolled frame on vista plus activeperl 5.10, but not on XP activeperl 5.6, safer to use canvas
 		my $sf = $w->Scrolled('Canvas', -width=>450, -height =>400, -highlightbackground=>'black', -background=>'#E7FFC2', -scrollbars=>'e')->pack(-side=>'left');
 		
 		my $y = 5;
 		foreach (@lines)
 		{
-			#$sf->Label(-text=>$_, -width=>70, -background=>'#E7FFC2', -anchor=>'w', -padx=>5)->pack(-anchor=>'w');
 			$sf->createText(5,$y, -text=>$_, -anchor=>'w');
 			$y+=15;
 		}
 		$y+=20;
 		$sf->configure(-scrollregion=>"0 0 450 $y");
 	}
+}
+
+sub getBackdrop{
+	#resize backdrop image to display size
+	if (! -f $backdropSource){
+		print "No backdrop file\n";
+		return;
+	}
+	
+	my $myImage = new GD::Image($cx,$cy);
+	my $image = GD::Image->new($backdropSource);
+	
+	my $sx = $image->width / $cx;
+	my $sy = $image->height / $cy;
+	
+	my $scale = $sx;
+	if ($sy < $sx){
+		$scale = $sy;
+	}
+	
+	my $sourcew = $cx * $scale;
+	my $sourceh = $cy * $scale;
+	
+	
+	$myImage->copyResized($image,0,0, int(($image->width - $sourcew)/2), int(($image->height - $sourceh)/2), $cx,$cy,$sourcew ,$sourceh);
+	
+	open (OUT, ">$backdropFile") || die "Could not create backdrop file\n";
+	binmode OUT;
+	print OUT $myImage->jpeg;
+	close OUT;
 }
 
 sub focusIn
@@ -678,7 +689,7 @@ sub _handlespecials
 	if ($specialonscreentime * $tickTime > 10 && defined($specialavailable) > -1 && @specialactive == 0){
 		$specialavailable = undef;
 		$specialonscreentime = 0;
-		$cnv->delete('special');
+		$cnv->delete($specialtag);
 	}
 	elsif (!defined($specialavailable)){
 		my $rand = int(rand(300)); #may make generation rate dependant on level
@@ -726,7 +737,7 @@ sub _handlespecials
 	
 	if (defined($specialavailable)){
 		$specialavailable->whileDisplaying;
-		my ($x, $y, $x1, $y1) = $cnv->coords('special');
+		my ($x, $y, $x1, $y1) = $cnv->coords($specialtag);
 		my @obj = $cnv->find('overlapping', $x, $y, $x1, $y1);
 		my $del = 0;
 		foreach my $id (@obj){
@@ -740,12 +751,12 @@ sub _handlespecials
 				}
 				push(@specialactive, $specialavailable);
 				$specialavailable = undef;
-				$sound->play('special');
+				$sound->play($specialtag);
 				$del = 1;
 				last;
 			}
 		}
-		$cnv->delete('special') if ($del == 1);
+		$cnv->delete($specialtag) if ($del == 1);
 	}
 }
 
@@ -798,7 +809,9 @@ sub clear
 		#$cnv->UnmapWindow;
 		#$cnv = $f->Canvas(-width=>$cx, -height =>$cy, -borderwidth=>0, -background=>'black')->pack(-side=>'left');
 		if (defined($mw->imageNames) && @{$mw->imageNames} > 0){ #backdrop is loaded
-			$cnv->createImage($cx/2,$cy/2, -image=>'backdrop', -anchor=>'center');
+			$cnv->createImage($cx/2,$cy/2, -image=>$backdropTag, -anchor=>'center');
+		}else{
+			_createStars(\$cnv);
 		}
 		$spacewhale=undef;
 		$cntl->itemconfigure('specialtext', -text=>'NORMAL');
@@ -890,7 +903,7 @@ sub _processEffect
 
 sub _expireSpecials
 {
-	$cnv->delete('special'); #remove any special icon on screen
+	$cnv->delete($specialtag); #remove any special icon on screen
 	if (@specialactive > 0 || defined($specialavailable)){
 	#remove any existing special
 		foreach(@specialactive)
@@ -1441,7 +1454,7 @@ sub _blinky
 	if ($crystal == -1 && time() % 3 == 0){
 		my $x = int(rand($cx-20));
 		my $y = int(rand($cy-20));
-		$cnv->createOval($x, $y, $x+30, $y+30, -fill=>'#FF0000', -outline=>'red', -tags=>["special","plus"]);
+		$cnv->createOval($x, $y, $x+30, $y+30, -fill=>'#FF0000', -outline=>'red', -tags=>[$specialtag,"plus"]);
 	}else{
 		#$specialavailable = -1;
 		$specialavailable = undef;
@@ -1451,24 +1464,24 @@ sub _blinky
 
 sub _blinkyOnScreen
 {
-	my $colour = $cnv->itemcget('special',-fill);
+	my $colour = $cnv->itemcget($specialtag,-fill);
 	$colour = hex(substr($colour,3,2));
-	my $dir = ${$cnv->itemcget('special',-tags)}[1];
+	my $dir = ${$cnv->itemcget($specialtag,-tags)}[1];
 	if ($dir eq "plus"){
 		$colour+=15;
 		if ($colour > 255){
 			$colour=255;
-			$cnv->itemconfigure('special',-tags=>["special","minus"]);
+			$cnv->itemconfigure($specialtag,-tags=>[$specialtag,"minus"]);
 		}
 	}else{
 		$colour-=15;
 		if ($colour < 0){
 			$colour=0;
-			$cnv->itemconfigure('special',-tags=>["special","plus"]);
+			$cnv->itemconfigure($specialtag,-tags=>[$specialtag,"plus"]);
 		}	
 	}
 	my $newcolour="#FF".dec2hex($colour)."00";
-	$cnv->itemconfigure('special',-fill=>$newcolour);
+	$cnv->itemconfigure($specialtag,-fill=>$newcolour);
 }
 
 sub _doBlinky
@@ -1476,7 +1489,7 @@ sub _doBlinky
 	#do side game
 	$specialavailable = undef;
 	$cntl->itemconfigure('countdown', -text=>'0');
-	$cnv->delete('special');
+	$cnv->delete($specialtag);
 	$cnv->update;
 	#stop(); #don't think I need to do this, this is being called from within the go loop, will block until prog finishes, and don't need to handle timings for a special effect, there shouldn't be another one in play
 	#end music and start new one for side game?
@@ -1604,18 +1617,25 @@ sub _specialbox
 	my $textcolour = shift;
 	my $x = int(rand($cx-20));
 	my $y = int(rand($cy-20));
-	$cnv->createRectangle($x, $y, $x+20, $y+20, -fill=>$colour, -outline=>$outline, -tags=>'special');
-	$cnv->createText($x+10, $y+10, -text=>$text, -anchor=>'c', -font=>'{Arial Bold} 10', -fill=>$textcolour, -tags=>'special');
+	$cnv->createRectangle($x, $y, $x+20, $y+20, -fill=>$colour, -outline=>$outline, -tags=>$specialtag);
+	$cnv->createText($x+10, $y+10, -text=>$text, -anchor=>'c', -font=>'{Arial Bold} 10', -fill=>$textcolour, -tags=>$specialtag);
 }
 
 sub _createStars
 {
 	my $canvas = shift;
-	for (1..60){
+	for (1..80){
 		my $x = int(rand($cx));
 		my $y = int(rand($cy));
-		my $size = int(rand(2));
-		$$canvas->createOval($x-1-$size, $y-1-$size, $x+1, $y+1, -fill=>'white');
+		my $size = int(rand(3));
+		my $colour = 'white';
+		my $randcolour = int(rand(3));
+		if ($randcolour < 1){
+			$colour = 'yellow';
+		}elsif ($randcolour < 2){
+			$colour = 'red';
+		}
+		$$canvas->createOval($x-1-$size, $y-1-$size, $x+1, $y+1, -fill=>$colour, -tags=>'star');
 	}
 }
 
@@ -1794,7 +1814,7 @@ sub useCrystal
 {
 	if (@specialactive == 0 && $crystal > -1){ #do not activate if a special is active
 		#print "$crystal\n";
-		$cnv->delete('special'); #remove any special icon on screen
+		$cnv->delete($specialtag); #remove any special icon on screen
 		push (@specialactive, $crystal);
 		$crystal->start;
 		$cframe->configure(-background=>'black');
