@@ -6,11 +6,12 @@ A hobby project that I've played with on and off for a while. At the centre of i
 Notes
 ------
 
-This was developed with ActivePerl 5.10.1 build 1007, I haven't gone higher than that as I have been using Image-Magick for background resizing in roidstest.pl. The version I had was compiled for the above build.
+This was developed with ActivePerl 5.10.1 build 1007, has been tested in 5.16.3 build 1603, and in the process of validating for Strawberry Perl
 
-Other than Image-Magick you will also need to install the Perl/Tk module if it hasn't been already
+You will also need to install the Perl/Tk module if it hasn't been already.
+Image-Magick is no longer required, the roids game now relies on GD-Image
 
-The roids game was developed on windows and uses some Win32 modules e.g. For sound, by all means develop yourself a linux version :)
+The roids game was developed on windows and uses some Win32 modules e.g. For sound, by all means develop yourself a linux version :) You may need to install Win32-Process and Win32-Sound
 
 The 3D library has a polygon mode and pixel mode, Tk doesn't draw very fast so pixel mode is very slow so you can't really use it for anything dynamic. I did port it to a Java version that does work quite well (not in this repository).
 
