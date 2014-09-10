@@ -21,7 +21,7 @@ sub play
 	}else{
 		my $path = "";
 		
-	    open(my $fh, '-|', 'perl -h') or die $!;
+	    open(my $fh, '-|', 'perl -h') || die $!;
 	
 		while (my $line = <$fh>) {
 		    if ($line =~ /[Uu]sage:\s*(.+?)\s/){

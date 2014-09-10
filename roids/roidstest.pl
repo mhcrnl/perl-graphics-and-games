@@ -1011,13 +1011,14 @@ sub _checkBulletCollision
 		_checkBeamRound($obj,\@ids); 		
 		 		
  	}else{
- 	 	#some bullet travel distances may be to long and skip the would be impacted object, check small chunks along bullet line
+ 	 	#some bullet travel distances may be too long and skip the would be impacted object, check small chunks along bullet line
+ 	 	#this would currently return tags on the first point where an overlap is found (may be detrimental to piercing rounds)
 	 	my $addx = $obj->{ADDX}/3;
  		my $addy = $obj->{ADDY}/3;
  		for (my $i = 4 ; $i--;){
  			my @temp = $cnv->find('overlapping', $obj->{X}-($addx*$i), $obj->{Y}-($addy*$i), $obj->{X}-($addx*$i), $obj->{Y}-($addy*$i));
+ 			@temp = grep{${$cnv->itemcget($_, -tags)}[0] =~ m/roid|drone|alien|whale/}@temp;
  			if (@temp > 0){
- 				#splice (@tags,@tags,0,@temp); 
  				push (@ids,@temp); 
  				$i=0;
  			}
@@ -1060,7 +1061,7 @@ sub _checkBulletCollision
 		else
 		{
 			$ret = _checkBulletRoidCollision($obj, $t);
-			last if ($obj->removeAfterHit() == 1);
+			last if ($ret == 1 && $obj->removeAfterHit() == 1);
 		}
 	}
 	return $ret;
@@ -1631,9 +1632,9 @@ sub _createStars
 		my $colour = 'white';
 		my $randcolour = int(rand(3));
 		if ($randcolour < 1){
-			$colour = 'yellow';
+			$colour = '#FFFFAA';
 		}elsif ($randcolour < 2){
-			$colour = 'red';
+			$colour = '#FFAAAA';
 		}
 		$$canvas->createOval($x-1-$size, $y-1-$size, $x+1, $y+1, -fill=>$colour, -tags=>'star');
 	}
