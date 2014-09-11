@@ -6,7 +6,7 @@ use strict;
 
 our @ISA = qw(CanvasObject);
 
-my $vertexFacetMap;
+our $vertexFacetMap;
 
 sub new
 {

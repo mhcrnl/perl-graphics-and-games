@@ -78,22 +78,23 @@ our $backdropTag = 'backdrop';
 	our $sound = SoundServer->new(11);
 	our $music = Music->new();
 	
-	our @specials2 = (Special2->new("STACKABLE", \&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire, "TRIPLE FIRE", $tickTime),
-						Special2->new("STACKABLE", \&_newbomb,sub{},\&_collectbomb,sub{}, "BOMB", $tickTime),
-						Special2->new("STACKABLE", \&_invuln,sub{},\&_doinvuln,\&_endinvuln, "INVULNERABLE", $tickTime),
+	$Special2::tickTime = $tickTime;
+	our @specials2 = (Special2->new("STACKABLE", \&_triplefire,sub{},\&_dotriplefire,\&_endtriplefire, "TRIPLE FIRE"),
+						Special2->new("STACKABLE", \&_newbomb,sub{},\&_collectbomb,sub{}, "BOMB"),
+						Special2->new("STACKABLE", \&_invuln,sub{},\&_doinvuln,\&_endinvuln, "INVULNERABLE"),
 						Special2->new("GOOD", \&_incROF,sub{},\&_doincROF,\&_endincROF, "+ ROF", $tickTime), #would like this one to be stackable but has complications
-						Special2->new("GOOD", sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds, "TRACKING ROUNDS", $tickTime),
-						Special2->new("GOOD", sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds, "EXPLOSIVE ROUNDS", $tickTime),
-						Special2->new("GOOD", sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds, "LASER", $tickTime),
-						Special2->new("GOOD", sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds, "SHOCKWAVE", $tickTime),
-						Special2->new("GOOD", sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds, "PIERCING ROUNDS", $tickTime),
-						Special2->new("GOOD", sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds, "SENTRY", $tickTime),
-						Special2->new("GOOD", \&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{},"BLINKY", $tickTime),
-						Special2->new("BAD", sub{}, sub{},\&_doReverse,\&_endReverse, "Reverse Controls", $tickTime),
-						Special2->new("BAD",sub{}, sub{},\&_doSlow,\&_endSpeedMod, "Slow Speed", $tickTime),
-						Special2->new("BAD",sub{}, sub{},\&_doFast,\&_endSpeedMod, "Hyper Speed", $tickTime),
-						Special2->new("BAD",sub{}, sub{},\&_doLoseGun,\&_endLoseGun, "No Gun", $tickTime),
-						Special2->new("BAD",sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "- Turn Rate", $tickTime),
+						Special2->new("GOOD", sub{_ammoBox('blue','T','yellow');},sub{},sub{_doAmmo('TRK');},\&_endRounds, "TRACKING ROUNDS"),
+						Special2->new("GOOD", sub{_ammoBox('black','X','yellow');},sub{},sub{_doAmmo('EXP');},\&_endRounds, "EXPLOSIVE ROUNDS"),
+						Special2->new("GOOD", sub{_ammoBox('red','L','white');},sub{},sub{_doAmmo('BEAM');},\&_endRounds, "LASER"),
+						Special2->new("GOOD", sub{_ammoBox('yellow','W','red');},sub{},sub{_doAmmo('WAVE');},\&_endRounds, "SHOCKWAVE"),
+						Special2->new("GOOD", sub{_ammoBox('black','P','red');},sub{},sub{_doAmmo('AP');},\&_endRounds, "PIERCING ROUNDS"),
+						Special2->new("GOOD", sub{_ammoBox('red','S','blue');},sub{},sub{_doAmmo('SEN');},\&_endRounds, "SENTRY"),
+						Special2->new("GOOD", \&_blinky, \&_blinkyOnScreen,\&_doBlinky,sub{},"BLINKY"),
+						Special2->new("BAD", sub{}, sub{},\&_doReverse,\&_endReverse, "Reverse Controls"),
+						Special2->new("BAD",sub{}, sub{},\&_doSlow,\&_endSpeedMod, "Slow Speed"),
+						Special2->new("BAD",sub{}, sub{},\&_doFast,\&_endSpeedMod, "Hyper Speed"),
+						Special2->new("BAD",sub{}, sub{},\&_doLoseGun,\&_endLoseGun, "No Gun"),
+						Special2->new("BAD",sub{}, sub{},\&_doTurnRate,\&_endTurnRate, "- Turn Rate")
 						);
 	
 	
@@ -123,6 +124,7 @@ sub _buildTopLevel
 	my $userframe = $mw->Frame(-borderwidth=>2, -background=>'black')->pack(-fill=>'x');
 	my $confmenu = $menuframe->Menubutton(-text=>'Configure', -relief=>'raised')->pack(-side=>'left');
 	$confmenu->command(-label=>'Ship',-command=>[\&confShip], -accelerator=>'Ctrl-S');
+	$confmenu->checkbutton(-label => "Use 3D roids", -variable => \$generate3Droids, -onvalue => 1, -offvalue => 0);
 	$mw->bind('<Control-s>'=>[\&confShip]);
 	my $toolmenu = $menuframe->Menubutton(-text=>'Help', -relief=>'raised')->pack(-side=>'left');
 	$toolmenu->command(-label=>'Instructions',-command=>[\&dispInstructions]);

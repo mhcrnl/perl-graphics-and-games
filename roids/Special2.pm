@@ -2,6 +2,8 @@ package Special2;
 
 use strict;
 
+our $tickTime = 1;
+
 sub new
 {
 	my $self = {};
@@ -12,12 +14,12 @@ sub new
 	$self->{STARTEFFECTFUNC} = shift;
 	$self->{ENDEFFECTFUNC} = shift;	
 	$self->{LABEL} = shift;
-	$self->{TICKTIME} = shift;
 	$self->{LIFE} = shift;
 	$self->{TICKSINUSE} = 0;
 	if ($self->{LIFE} == 0){
 		$self->{LIFE} = 20;
 	}
+	print "$tickTime\n";
 	bless $self;
 	return $self;
 }
@@ -63,7 +65,7 @@ sub hasExpired
 {
 	my $self = shift;
 	
-	return 1 if ($self->{TICKTIME} * $self->{TICKSINUSE} > $self->{LIFE});
+	return 1 if ($tickTime * $self->{TICKSINUSE} > $self->{LIFE});
 	
 	return 0;
 }
@@ -72,7 +74,7 @@ sub timeLeft
 {
 	my $self = shift;
 	
-	return sprintf "%.2f", $self->{LIFE} - ($self->{TICKTIME} * $self->{TICKSINUSE});
+	return sprintf "%.2f", $self->{LIFE} - ($tickTime * $self->{TICKSINUSE});
 }
 
 return 1;

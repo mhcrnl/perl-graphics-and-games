@@ -33,7 +33,7 @@ This basically builds a sphere and deforms it by altering the radius and y value
 
 =cut
 
-my $vertexFacetMap;
+our $vertexFacetMap;
 
 sub new
 {
