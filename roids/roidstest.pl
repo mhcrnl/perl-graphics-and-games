@@ -36,7 +36,7 @@ our $mw;
 our $cnv;
 our $cframe;
 
-our $generate3Droids = 0; #will have slow downs if true and depends a lot on PC performance
+our $generate3Droids = 1; #will have slow downs if true and depends a lot on PC performance
 our $tickTime = 1/40; #40 ticks per second
 our $level = 1;
 our $maxlevel = 8;

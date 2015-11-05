@@ -1,7 +1,7 @@
 use lib 'perllib';
 use Torus;
 use Sphere;
-use ThreeDCubesTest;
+use ThreeDCubesGD;
 use Cuboid;
 use Tk;
 
@@ -17,7 +17,8 @@ $cube->setDimensions(140,140,140);
 my @lightsource = (225, 225, -100);
 $cnv->createText(10, 20, -text=>'Loading, Please Wait ...', -font=>'{Arial Bold} 14',-fill=>'black', -anchor=>'w');
 $mw->update; #needed for $canvas->Height to work , could even put up a loading panel while the 3d stuff is underway
-my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource,0,1);
+#my $tdc = ThreeDCubesTest->new(\$cnv, \$mw, \@lightsource,0, 1);
+my $tdc = ThreeDCubesGD->new(\$cnv, \$mw, \@lightsource,0);
 my $obj = $tdc->registerObject($torus,\@focuspoint,'#00ff00',200,140,155,0,1);
 my $obj2 = $tdc->registerObject($torus2,\@focuspoint,'#ff00ff',200,260,155,0,1);
 my $obj4 = $tdc->registerObject($cube,\@focuspoint,'#ff0000',130,330,85,0,1);

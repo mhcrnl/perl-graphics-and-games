@@ -19,7 +19,7 @@ sub new
 	if ($self->{LIFE} == 0){
 		$self->{LIFE} = 20;
 	}
-	print "$tickTime\n";
+	#print "$tickTime\n";
 	bless $self;
 	return $self;
 }

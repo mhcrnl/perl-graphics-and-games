@@ -1,15 +1,18 @@
 
 #testing out different 3d manipulation functions
 
-package ThreeDCubesTest;
+package ThreeDCubesGD;
 use Tk;
 use CanvasObject;
 use Math::Trig;
 use GamesLib;
 use LineEq;
-#use threads; #DISABLED DUE TO POOR PERFORMANCE WITH SHARE ESPECIALLY FOR SINGLE THREADED APPS
+#use threads;
 #use threads::shared;
 use strict;
+use GD;
+use Tk::PNG;
+use MIME::Base64;
 #cut down version for roids, no set-up for other types of object, left out JBwingui specific things
 #objects to be set-up outside this package not in it, so don't have to do specific object set-up functions
 #use generic create object function instead, this basically handles drawing and moving etc
@@ -22,8 +25,6 @@ sub new{
 	my $mw = shift;
 	my $lightsource = shift;
 	my $viewangle = shift;
-	my $pixeldraw = shift;
-	$pixeldraw = 0 if(! $pixeldraw);
 	my $self = {};
 	$self->{SHAPES}=[];
 	$self->{BACKPOINTS}=[];
@@ -51,12 +52,12 @@ sub new{
     						
     	$self->{MOVE_LS_WITH_CAM} = 0;
     	
-    	$self->{PXDRAW} = $pixeldraw;
     	$self->{MW}=$mw;
     	$self->{ZBUF} = 0;
     	$self->{BUFREADY}=0;
     	$self->{DOSHADOW}=0;
 		$self->{BASE_INTENSITY}=0.15;
+		$self->{GD_OUT} = undef;
 		bless $self;
 	return $self;
 
@@ -119,7 +120,6 @@ sub registerObject
 	$self->{SHAPES}[$objnum]->setFocus(\@fp);
 	$self->{SHAPES}[$objnum]->setColour($colour) if ($colour ne '');
 	$self->{SHAPES}[$objnum]->translate($movex,$movey,$movez);
-	$self->{SHAPES}[$objnum]->sortz() if ($self->{PXDRAW}==0);
 	if ($unshift){
 		unshift (@{$self->{DRAWORDER}}, $objnum);
 	}else{
@@ -402,9 +402,7 @@ sub moveCameraInWorld
 sub _updateAll
 {
 	my $self = shift;
-	if ($self->{PXDRAW} == 1){
-			_drawObject($self,0,0); #pixel draw always refreshes all items so only call it once
-	}else{
+
 	for(my $i = 0 ; $i < @{$self->{DRAWORDER}} ; $i++){
 		if (! $self->{SHAPES}[$self->{DRAWORDER}[$i]] eq "")
 		{
@@ -412,7 +410,6 @@ sub _updateAll
 			#draw mode 0 refreshes entire display, deletes all items and redraws
 			#ensures draw order is correct, but might be a better way somewhere
 		}
-	}
 	}
 	_updateWindow($self);
 }
@@ -515,23 +512,6 @@ sub _zoom
 }
 
 
-
-sub redraw
-{
-	#redraw specific objects
-	my $self = shift;
-	my $objs = shift; #array ref
-	my $mode = shift;
-	return if ($self->{PXDRAW} == 1);
-	#may want to factor in draworder - currently will redraw in order given
-	
-	foreach (@$objs){
-		_drawObject($self,$mode,$_);
-	}
-	_updateWindow($self);
-}
-
-
 sub getItemIds
 {
 	my $self=shift;
@@ -545,8 +525,7 @@ sub _drawObject
 	my $self = shift;
 	my $drawmode = shift;
 	my $obj = shift;
-	if ($self->{PXDRAW}==0){_drawObjectPoly($self,$drawmode,$obj);}
-	elsif ($self->{PXDRAW}==1){_drawObjectPixel($self);} #has to redraw everything regardless
+	_drawObjectPixel($self);
 }
 
 
@@ -567,8 +546,9 @@ sub _drawObjectPixel
 	#otherwise use single thread setup
 	my $self = shift;
 	my $displaycanvas = $self->{DISPLAY};
-	my %zbuf ;#:shared;
-	#DISABLED DUE TO POOR PERFORMANCE WITH SHARE
+	my %zbuf;# :shared; #appears to be a big hit sharing hashes (for threading) - zbuffer does add a lot of entries that also have to be shared 
+	#TREADING DISABLED IN THIS TEST
+ 
  # pixel draw - very slow (in Tk) - easily deals with overlapping objects - easy collision detection (though not checking that here)
 		
 		#print "-----\n";
@@ -580,6 +560,9 @@ sub _drawObjectPixel
 		#@tnotify = (0) x $threadcnt;
 		#@tdata = (-1) x $threadcnt;
 		
+		$self->{GD_OUT} = new GD::Image($self->{WIDTH}, $self->{HEIGHT}, 1);
+
+		$self->{GD_OUT}->fill(0,0,$self->{GD_OUT}->colorResolve(255,255,255));
 		
 		for(my $j = 0 ; $j < @{$self->{DRAWORDER}} ; $j++){
 		#	if ($displaycanvas != 0){
@@ -610,7 +593,7 @@ sub _drawObjectPixel
 		#		else {select (undef, undef, undef, 0.1);}
 		#	}
 		#	}
-		#	
+			
 		}
 		#while(1 && $displaycanvas == 0){
 			#wait for threads to finish
@@ -670,6 +653,7 @@ sub _pixelDraw{
 	my $self = shift;
 	my $zbuf = shift;
 	my $id = shift;
+	
 	my $fovflag = $self->{CAMERA_VIEW_ANGLE};
 	if (! $self->{SHAPES}[$self->{DRAWORDER}[$id]] eq ""){
 				my $obj = 	$self->{DRAWORDER}[$id];
@@ -702,193 +686,25 @@ sub outputZBuffer{
 	my $self = shift;
 	my $cnv = shift;
 	my $bufref = shift;
-
+	
 	my %zbuffer = %$bufref;
 	$$cnv->delete('all');
 	$self->{BUFREADY}=0;
-#			foreach my $key (keys %zbuffer){
-#			#print "$key\n";
-#			#print $zbuffer{$key}."\n";
-#			if ($key=~m/^(\d+)_(\d+)c$/){
-#				my $tempy = $2;
-#				my $tempx = $1;
-#				#draw pixels as defined by zbuffer
-#				$$cnv->createLine($tempx, $tempy,$tempx+1, $tempy, -fill=>$zbuffer{$key});
-#			}
-#		}
 		foreach my $xval (keys %zbuffer)
 		{
 			foreach my $yval (keys %{$zbuffer{$xval}})
 			{
-				$$cnv->createLine($xval, $yval,$xval+1, $yval, -fill=>$bufref->{$xval}->{$yval}->{C});
+				$self->{GD_OUT}->setPixel($xval, $yval, $bufref->{$xval}->{$yval}->{C});
+				
+				#using GD is quicker but not massively so :(
+				#$$cnv->createLine($xval, $yval,$xval+1, $yval, -fill=>$bufref->{$xval}->{$yval}->{C});
 			}
 		}
-	
-	
+	${$self->{MW}}->Photo('output', -format => 'png', -data => encode_base64($self->{GD_OUT}->png));
+
+	$$cnv->createImage(0,0, -image=>'output', -anchor=>'nw');
 }
 
-sub _drawObjectPoly
-{
-	#n.b. only creates or updates the given object
-	my $self = shift;
-	my $drawmode = shift;
-	my $obj = shift;
-	my $fovflag = $self->{CAMERA_VIEW_ANGLE};
-	my $colour;
-	my $ditem;
-	my $drawflag = 1;
-	my $lastobj = 0;
-	my $arrayref;
-	my @camVertList; #object vertexlist transformed to camera coordinates
-	my $facetVertices;
-	if ($fovflag){
-		$arrayref = _getFieldView($self,$obj, 'SHAPES');
-		@camVertList = @{$arrayref};
-	}else{
-		$arrayref = _getPerspective($self,$obj);
-		@camVertList = @{$arrayref};
-	}
-	if ($self->{SHAPES}[$obj]->{SORT} && $self->{PXDRAW}==0){
-		#if torus/cross etc. (complex shape)
-		if ($fovflag){
-			#facetvertices array sorted on camera transformation coordinates
-			my $tempobj = CanvasObject->new();
-			$tempobj->{VERTEXLIST}=\@camVertList;
-			my @fv = @{$self->{SHAPES}[$obj]->{FACETVERTICES}};
-			$tempobj->{FACETVERTICES}=\@fv;
-			$tempobj->sortz();
-			$facetVertices = $tempobj->{FACETVERTICES};
-			$tempobj = undef;
-		}else{
-			$self->{SHAPES}[$obj]->sortz();
-			$facetVertices = $self->{SHAPES}[$obj]->{FACETVERTICES};
-		}
-	} else{
-		$facetVertices = $self->{SHAPES}[$obj]->{FACETVERTICES};
-	}
-	my $displayitems = $self->{SHAPES}[$obj]->{CANVASITEMS};
-	my $displaycanvas = $self->{DISPLAY};
-	my $vertexList = $self->{SHAPES}[$obj]->{VERTEXLIST};
-	my $focuspoint = $self->{SHAPES}[$obj]->{FOCUSPOINT};
-
-	
-	#make sure display array is empty and any items associated are removed
-	if ($drawmode == 0){
-	foreach my $itemid (grep{$_>0} @{$displayitems}){
-		$$displaycanvas->delete($itemid);
-	}
-	@{$displayitems} = (0) x @{$facetVertices};
-	}
-
-	my $outline='';
-	
-	#polygon draw - not bad on speed but difficult to order objects
-	
-	for (my $i = 0 ; $i < @{$facetVertices} ; $i++)
-	{
-	
-
-		$drawflag = 0;
-		#only draw facet if all z values are lower than the focus point z value
-		$drawflag = 1 if (($$vertexList[$$facetVertices[$i][0]][2] < $$focuspoint[2] &&
-		$$vertexList[$$facetVertices[$i][1]][2] < $$focuspoint[2] &&
-		$$vertexList[$$facetVertices[$i][2]][2] < $$focuspoint[2]) ||
-		$fovflag);
-		my $x = $camVertList[$$facetVertices[$i][0]][0];
-		my $y = $camVertList[$$facetVertices[$i][0]][1];
-		my $x1 = $camVertList[$$facetVertices[$i][1]][0];
-		my $y1 = $camVertList[$$facetVertices[$i][1]][1];
-		my $x2 = $camVertList[$$facetVertices[$i][2]][0];
-		my $y2 = $camVertList[$$facetVertices[$i][2]][1];
-			
-		my $idno = $$facetVertices[$i][3];
-		my $bf = _checkBackFace($self,\@{$camVertList[$$facetVertices[$i][0]]},\@{$camVertList[$$facetVertices[$i][1]]},\@{$camVertList[$$facetVertices[$i][2]]},$fovflag, $idno);
-
-		if ($bf < 0){ #minus values mean vectors heading towards each other, therefore front face	
-				#$bf = 1; #now check if off screen - doesn't draw if all three points are off screen - anything behind camera already not drawn
-				#foreach(0..2){
-				#	if ($camVertList[$$facetVertices[$i][$_]][0] >= 0 && $camVertList[$$facetVertices[$i][$_]][0] <= $$displaycanvas->Width && $camVertList[$$facetVertices[$i][$_]][1] >= 0 && $camVertList[$$facetVertices[$i][$_]][1] <= $$displaycanvas->Height)
-				#
-				#	{
-				#		$bf=-1;
-				#		last;
-				#	}
-				#	
-				#}
-				#however it is possible for all three points to be offscreen and the facet still be visible in front of you - so taken this out for rethink
-				
-				if (($x < 0 && $x1 < 0 && $x2 < 0)
-				 || ($x1 < 0 && $y1 < 0 && $y2 < 0)
-				 || ($x > $$displaycanvas->Width && $x1 > $$displaycanvas->Width && $x2 > $$displaycanvas->Width)
-				 || ($x1 > $$displaycanvas->Height && $y1 > $$displaycanvas->Height && $y2 > $$displaycanvas->Height)
-				){ $bf=1;} #this won't draw if all points of the facet are off screen on the same side
-				
-				if ($bf < 0){
-				my @point = _getTriangleCentre(\@{$$vertexList[$$facetVertices[$i][0]]},\@{$$vertexList[$$facetVertices[$i][1]]},\@{$$vertexList[$$facetVertices[$i][2]]});
-				if ($self->{SHAPES}[$obj]->{NOFILL} == 1){
-					$colour = $self->{SHAPES}[$obj]->{SHADE};
-				}
-				else{
-					$colour = _getShade($self,\@{$$vertexList[$$facetVertices[$i][0]]},\@{$$vertexList[$$facetVertices[$i][1]]},\@{$$vertexList[$$facetVertices[$i][2]]},$obj,\@point,(@{$$facetVertices[$i]} > 4) ? $$facetVertices[$i][4] : 0);
-				}
-				if ($self->{SHAPES}[$obj]->{OUTL} eq ''){
-					$outline=$colour;
-				}else{
-					$outline=$self->{SHAPES}[$obj]->{OUTL};
-				}
-				}
-		}
-
-		my $tag = $self->{SHAPES}[$obj]->{TAG};
-			$tag = 'none' if (! $tag);
-		if ($drawmode == 0){
-		if ($bf < 0 && $drawflag ==1){
-			#whole face shaded same colour only as drawing by polygon not pixel
-			#use master coords, not perspective coords for lighting
-			
-			if ($self->{SHAPES}[$obj]->{NOFILL} == 1){
-				$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -outline=>$outline, -tags=>''.$tag);
-			}else{
-				$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -fill=>$colour, -outline=>$outline, -tags=>''.$tag);
-			}
-			$$displayitems[$idno] = $ditem;
-		}
-		}
-		else
-		{
-			#would hope this mode of redraw is faster - but not sure - it is a little
-			if ($bf < 0 && $$displayitems[$idno] > 0 && $drawflag ==1){
-				$ditem = $$displayitems[$idno];
-				$$displaycanvas->coords($ditem, $x,$y,$x1,$y1,$x2,$y2);
-				if ($self->{SHAPES}[$obj]->{NOFILL} == 1){
-					$$displaycanvas->itemconfigure($ditem, -outline=>$outline);
-				}else{
-					$$displaycanvas->itemconfigure($ditem, -fill=>$colour, -outline=>$outline);
-				}
-				$$displaycanvas->raise($ditem, $lastobj) if ($lastobj > 0);
-				$lastobj = $ditem;
-				
-			}
-			elsif ($bf < 0 && $$displayitems[$idno] == 0 && $drawflag ==1){
-				if ($self->{SHAPES}[$obj]->{NOFILL} == 1){
-					$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -outline=>$outline, -tags=>''.$tag);
-				}else{
-					$ditem = $$displaycanvas->createPolygon($x,$y,$x1,$y1,$x2,$y2, -fill=>$colour, -outline=>$outline, -tags=>''.$tag);
-				}
-				$$displayitems[$idno] = $ditem;
-				$lastobj = $ditem;
-			}
-			elsif (($bf >= 0 && $$displayitems[$idno] > 0) || ($$displayitems[$idno] > 0 && $drawflag ==0)){
-				$$displaycanvas->delete($$displayitems[$idno]);
-				$$displayitems[$idno] = 0;
-			}
-		}
-				
-	} #end for
-	
-	
-
-}
 
 sub _getTriangleCentre
 {
@@ -1000,7 +816,7 @@ sub _buildZBuffer #called per facet
 		my @yToProcess = ();
 		
 		{ #lock block
-		lock($zbuf);
+		#lock($zbuf);
 		if ($lineLen != 0){
 		foreach my $y (int($yVals[0]+0.5)..int($yVals[1]+0.5)){
 		if ($y >=$miny && $y <=$maxy){
@@ -1289,7 +1105,7 @@ sub _getCameraCoords{
 		#change vertex position depending on where the camera is pointing and how far away it is
 		$zed = 1 if ($zed < 1 && $zed >= 0);
 
-		if ($zed < 0 && $self->{PXDRAW} == 1){ #point behind camera in pixel mode
+		if ($zed < 0){ #point behind camera in pixel mode
 			#get point if it was at z=1, get point if z=z*-1, add the difference to point at z=1
 			my @zAt1 = ($x,$y,1);
 			my @invZ = ($x,$y,$z*-1);
@@ -1297,9 +1113,6 @@ sub _getCameraCoords{
 			my $camInvZ = _getCameraCoords($self,\@invZ);
 			@camVertList = ($$camZat1[0]+($$camZat1[0]-$$camInvZ[0]),$$camZat1[1]+($$camZat1[1]-$$camInvZ[1]),$zed);
 			
-		}elsif ($zed < 0 && $self->{PXDRAW} == 0){
-			#would have to find points where lines crossed z = 0 and use those, likely means building other triangles too
-			#until then polygon mode triangles disppear as soon as one point is behind the camera
 		}elsif ($zed > 0){
 			my @vectortopoint = (($x-$eyex),($y-$eyey),$zed);
 			_normalise(\@vectortopoint);
@@ -1343,8 +1156,6 @@ sub _checkBackFace
 	$minz = $$c[2] if ($$c[2] < $minz);
 
 	#return 1 if (($minz+(($maxz-$minz)/2)) < -1); #average transformed z value of facet
-
-	return 1 if ($minz < 0 && $self->{PXDRAW} == 0 ); #actually only need minz, if it is less than zero do not draw the facet
 
 	return 1 if ($$a[2] < 1 && $$b[2] < 1 && $$c[2] < 1);
 	#pixel mode in perspective mode draws fine, fov mode needs fixing
@@ -1431,32 +1242,40 @@ sub _checkBackFace
   	if (! $shade){
 		$shade =  $self->{SHAPES}[$obj]->{SHADE};
   	}
-  	my $colourhex = dec2hex($percent*255);
+  	#my $colourhex = dec2hex($percent*255);
+  	my $colourhex = $percent*255;
 
-  	my $colour = "#".$colourhex."2222";
+  	#my $colour = "#".$colourhex."2222";
+  	my $colour = $self->{GD_OUT}->colorResolve($colourhex, $colourhex, $colourhex);
   	if ($shade eq 'green'){
-  		$colour = "#22".$colourhex."22";
+  		#$colour = "#22".$colourhex."22";
+  		$colour = $self->{GD_OUT}->colorResolve(22, $colourhex, 22);
   	}
   	elsif ($shade eq 'white'){
-  		$colour = "#".$colourhex.$colourhex.$colourhex;
+  		#$colour = "#".$colourhex.$colourhex.$colourhex;
+  		$colour = $self->{GD_OUT}->colorResolve($colourhex, $colourhex, $colourhex);
   	}
     	elsif ($shade eq 'blue'){
-    		$colour = "#2222".$colourhex;
+    		#$colour = "#2222".$colourhex;
+    		$colour = $self->{GD_OUT}->colorResolve(22, 22, $colourhex);
   	}
   	elsif ($shade eq 'yellow'){
-		$colour = "#".$colourhex.$colourhex."22";
+		#$colour = "#".$colourhex.$colourhex."22";
+		$colour = $self->{GD_OUT}->colorResolve($colourhex, $colourhex, 22);
   	}
   	 elsif ($shade eq 'magenta'){
-			$colour = "#".$colourhex."22".$colourhex;
+			#$colour = "#".$colourhex."22".$colourhex;
+			$colour = $self->{GD_OUT}->colorResolve($colourhex, 22, $colourhex);
   	}
   	 elsif ($shade eq 'cyan'){
-			$colour = "#22".$colourhex.$colourhex;
+			#$colour = "#22".$colourhex.$colourhex;
+			$colour = $self->{GD_OUT}->colorResolve(22, $colourhex, $colourhex);
   	}elsif ($shade =~ m/^\#(.{2})(.{2})(.{2})$/){
   		my $r = int(hex($1)*$percent);
   		my $g = int(hex($2)*$percent);
   		my $b = int(hex($3)*$percent);
-  		$colour = "#".dec2hex($r).dec2hex($g).dec2hex($b);
-  	
+  		#$colour = "#".dec2hex($r).dec2hex($g).dec2hex($b);
+  		$colour = $self->{GD_OUT}->colorResolve($r, $g, $b);
   	}
   	
   	return $colour;

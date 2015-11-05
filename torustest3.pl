@@ -69,8 +69,11 @@ sub _doAction{
 	my @focuspoint=(0);
 	my $obj = $tdc->registerObject($torus,\@focuspoint,'#00ff00',200,140,155,0,1);
 	my $obj2 = $tdc->registerObject($torus2,\@focuspoint,'#ff00ff',200,260,155,0,1);
-	my $obj3 = $tdc->registerObject($sphere,\@focuspoint,'#0000ff',100,300,55,0,1);
+	#my $obj3 = $tdc->registerObject($sphere,\@focuspoint,'#0000ff',100,300,55,0,1);
 	my $obj4 = $tdc->registerObject($cube,\@focuspoint,'#ff0000',130,330,85,0,1);
+	
+	my $centre = $cube->getCentre();
+	my $obj3 = $tdc->registerObject($sphere,\@focuspoint,'#0000ff',$$centre[0],$$centre[1],$$centre[2],0,1);
 	
 	$tdc->rotate($obj4,'y',80,80,1);
 	$tdc->rotate($obj4,'x',50,50,1);
