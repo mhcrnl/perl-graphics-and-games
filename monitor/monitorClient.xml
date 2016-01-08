@@ -1,0 +1,130 @@
+<config>
+    <server></server>
+    <port></port>
+    <monitors>
+        <monitor frame="0" row="0" col="0">
+            <name>Async Queue</name>
+            <interval>1</interval>
+            <query><![CDATA[<request><QueryID>1</QueryID><parameters><parameter><parametertype>int</parametertype><parametername>systemid</parametername><parametervalue>27</parametervalue></parameter></parameters></request>]]></query>
+            <timeField>MessageTimeStamp</timeField>
+            <failureThreshold>30</failureThreshold>
+            <height>50%</height>
+            <width>60%</width>
+            <components>
+                <component>
+                    <type>TrafficLight</type>
+                    <valueField>Message</valueField>                   
+                    <maxValue>60000</maxValue>
+                    <valueMod type="regex" value="s/\D*(\d+)\D*/$1/"/>
+                    <fontSize>30</fontSize>
+                    <width>150</width>
+                    <location x="50" y="50"/>
+                </component>
+                <component>
+                    <type>BarList</type>
+                    <valueField>Message</valueField>    
+                    <labelField>MessageTimeStamp</labelField>  
+                    <valueMod type="regex" value="s/\D*(\d+)\D*/$1/"/>
+                    <labelMod type="date" value="%d/%m %H:%M"/>               
+                    <maxValue>60000</maxValue>
+                    <maxBarWidth>35%</maxBarWidth>
+                    <location x="40%" y="20"/>
+                </component>
+                <component>
+                    <type>Label</type>
+                    <valueField>Message</valueField>  
+                    <valueMod type="regex" value="s/\D*(\d+)\D*/$1/"/>
+                    <fontSize>22</fontSize>
+                    <location x="125" y="250"/>
+                 </component>
+            </components>        
+        </monitor> 
+        <monitor frame="0" row="0" col="1">
+            <name>Messages</name>
+            <failureThreshold>0</failureThreshold>
+            <interval>1</interval>
+            <query><![CDATA[<request><QueryID>2</QueryID><parameters><parameter><parametertype>int</parametertype><parametername>systemid</parametername><parametervalue>27</parametervalue></parameter></parameters></request>]]></query>
+            <height>50%</height>
+            <width>40%</width>
+            <components>
+                <component>
+                    <type>MessageList</type>
+                    <valueField>Message</valueField>    
+                    <timeField>MessageTimeStamp</timeField>  
+                    <alertLevelField>AlertLevel</alertLevelField>
+                    <resultLimit>50</resultLimit>
+                    <location x="25" y="25"/>
+                    <alertLevels defaultBackground="#000000" defaultTextColour="#FFFFFF">
+                        <item name="warning" textColour="#FFFF22"/>
+                        <item name="error" colour="#FF2222" flash="true"/>
+                    </alertLevels>
+                </component>
+            </components>
+        </monitor> 
+        <monitor frame="1" row="1" col="0">
+            <name>CPU</name>
+            <interval>1</interval>
+            <query><![CDATA[<request><QueryID>1</QueryID><parameters><parameter><parametertype>int</parametertype><parametername>systemid</parametername><parametervalue>27</parametervalue></parameter></parameters></request>]]></query>
+            <timeField>MessageTimeStamp</timeField>
+            <failureThreshold>30</failureThreshold>
+            <height>50%</height>
+            <width>100%</width>
+            <components>
+                <component>
+                	<type>StatusGrid</type>
+                	<blockSize>6%</blockSize>
+                	<fontSize>14</fontSize>
+                	<columns>2</columns>
+                	<statusValues defaultColour="#22FF22" defaultTextColour="#000000">
+                	    <item start="60" end="90" colour="#FFFF22"/>
+                	    <item start="90" end="100" colour="#FF2222" flash="true"/>
+                	    <!-- Intend without end it must match the start value and will work with strings -->
+                	</statusValues>
+                	<warningThreshold>60</warningThreshold>
+                	<alertThreshold>90</alertThreshold>
+                	<location x="25" y="25"/>
+                	<data>
+	                    <item legend="CPU 1">
+	                        <valueField>Message</valueField>  
+	                    	<valueMod type="regex||percent" value="s/^.*$/100/||100"/>
+	                    </item>
+	                    <item legend="CPU 2">
+	                        <valueField>Message</valueField>  
+	                    	<valueMod type="regex||percent" value="s/^.*$/42/||100"/>
+	                    </item>
+	                    <item legend="CPU 3">
+	                        <valueField>Message</valueField>  
+	                    	<valueMod type="regex||percent" value="s/^.*$/53/||100"/>
+	                    </item>
+	                    <item legend="CPU 4">
+	                        <valueField>Message</valueField>  
+	                    	<valueMod type="regex||percent" value="s/^.*$/71/||100"/>
+	                    </item>
+	                </data>
+                </component>
+                <component>
+                    <type>GDLineChart</type>
+                    <title>CPU Utilisation Chart</title>
+                    <axes xlabel="Time" ylabel="%"/>
+                    <range min="0" max="100"/>
+                    <resultLimit>50</resultLimit>
+                    <location x="20%" y="25"/>
+                    <width>79%</width>
+                    <height>90%</height>
+                    <labelField>MessageTimeStamp</labelField>  
+	                <labelMod type="date" value="%H:%M"/> 
+                    <data>
+	                    <series legend="CPU 1">
+	                        <valueField>Message</valueField>  
+	                    	<valueMod type="regex||percent" value="s/\D*(\d+)\D*/$1/||60000"/>
+	                    </series>
+	                    <series legend="CPU 2">
+	                        <valueField>Message</valueField>  
+	                    	<valueMod type="regex||percent" value="s/\D*(\d+)\D*/$1/||90000"/>
+	                    </series>
+                    </data>
+                </component>
+			</components>
+        </monitor>      
+    </monitors>
+</config>
